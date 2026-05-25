@@ -18,7 +18,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      isAuthenticated: false,
+      isAuthenticated: !!localStorage.getItem('auth_token'),
       isLoading: false,
       error: null,
 
@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>()(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             },
             body: JSON.stringify({ email, password }),
           });
@@ -63,6 +63,7 @@ export const useAuthStore = create<AuthState>()(
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
               },
             });
           }
@@ -87,6 +88,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             },
           });
 
@@ -123,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user }),
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

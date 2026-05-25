@@ -95,6 +95,16 @@ async function getOrCreateCutoff(releaseDate: string, userId: string) {
   return newCutoff;
 }
 
+async function shouldEnforceCutoffRules() {
+  const { data } = await supabase
+    .from('system_config')
+    .select('config_value')
+    .eq('config_key', 'enforce_cutoff_rules')
+    .single();
+
+  return data?.config_value !== false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -211,6 +221,7 @@ Deno.serve(async (req: Request) => {
 
       // Get or create cutoff period
       const cutoff = await getOrCreateCutoff(release_date, userId);
+      const enforceCutoffRules = await shouldEnforceCutoffRules();
 
       if (!cutoff) {
         return new Response(
@@ -220,7 +231,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Check if cutoff is still open and has capacity
-      if (cutoff.status === 'closed') {
+      if (enforceCutoffRules && cutoff.status === 'closed') {
         return new Response(
           JSON.stringify({ error: 'CUTOFF CLOSED - Maximum lending reached for this period' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -228,7 +239,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const remainingCapacity = cutoff.max_lending - cutoff.total_released;
-      if (principal_amount > remainingCapacity) {
+      if (enforceCutoffRules && principal_amount > remainingCapacity) {
         return new Response(
           JSON.stringify({
             error: `INSUFFICIENT CUTOFF CAPACITY - Only ₱${remainingCapacity.toLocaleString()} remaining`

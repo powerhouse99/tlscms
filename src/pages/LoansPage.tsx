@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { PageHeader } from '../components/common/PageHeader';
-import { Card, Button, Badge, Modal, Input, Select, Table } from '../components/common/DataCard';
+import { Card, Button, Badge, Table } from '../components/common/DataCard';
 import { StatCard } from '../components/common/StatCard';
-import type { Loan, CutoffSummaryView, MemberSummaryView } from '../types/database';
+import type { Loan, CutoffSummaryView } from '../types/database';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { LoanDetailsModal } from '../components/loans/LoanDetailsModal';
 import { NewLoanModal } from '../components/loans/NewLoanModal';
@@ -15,11 +15,16 @@ export function LoansPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showNewLoanModal, setShowNewLoanModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [enforceCutoffRules, setEnforceCutoffRules] = useState(true);
 
   useEffect(() => {
     fetchLoans();
     fetchCutoffs();
   }, [statusFilter]);
+
+  useEffect(() => {
+    fetchCutoffRuleConfig();
+  }, []);
 
   const fetchLoans = async () => {
     setLoading(true);
@@ -69,7 +74,29 @@ export function LoansPage() {
     }
   };
 
+  const fetchCutoffRuleConfig = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/config/key/enforce_cutoff_rules`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setEnforceCutoffRules(data.config_value !== false);
+      }
+    } catch (error) {
+      console.error('Error fetching cutoff rule config:', error);
+    }
+  };
+
   const activeCutoff = cutoffs.find((c) => c.status === 'open');
+  const canCreateLoan = Boolean(activeCutoff) || !enforceCutoffRules;
 
   const stats = {
     total: loans.length,
@@ -157,7 +184,7 @@ export function LoansPage() {
         title="Loans"
         description="Manage lending operations and loan tracking"
         actions={
-          <Button onClick={() => setShowNewLoanModal(true)} disabled={!activeCutoff}>
+          <Button onClick={() => setShowNewLoanModal(true)} disabled={!canCreateLoan}>
             <Plus className="w-4 h-4 mr-2" />
             New Loan
           </Button>
@@ -197,12 +224,23 @@ export function LoansPage() {
         </Card>
       )}
 
-      {!activeCutoff && (
+      {!activeCutoff && enforceCutoffRules && (
         <Card className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
             <p className="text-yellow-800 dark:text-yellow-200">
               No active cutoff period. Loans cannot be processed at this time.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {!activeCutoff && !enforceCutoffRules && (
+        <Card className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-600" />
+            <p className="text-blue-800 dark:text-blue-200">
+              Cutoff rule enforcement is off. Loans can be processed for the selected release date.
             </p>
           </div>
         </Card>
@@ -236,7 +274,7 @@ export function LoansPage() {
         />
       </Card>
 
-      {showNewLoanModal && activeCutoff && (
+      {showNewLoanModal && (
         <NewLoanModal
           cutoff={activeCutoff}
           onClose={() => setShowNewLoanModal(false)}

@@ -38,7 +38,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    const path = url.pathname.split('/dividends')[1] || '/';
+    // Robust path parsing: ignore the /dividends prefix if present
+    let path = url.pathname;
+    if (path.includes('/dividends')) {
+      path = path.split('/dividends')[1] || '/';
+    }
+    // Normalize: remove trailing slash
+    if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+    
     const pathParts = path.split('/').filter(Boolean);
 
     // Helper: require admin/treasurer (server-side using service role)
@@ -104,10 +111,124 @@ Deno.serve(async (req: Request) => {
       }
     };
 
+    const getDividendInterestRate = async () => {
+      const { data: rateRow } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'dividend_interest_rate')
+        .maybeSingle();
+
+      const rateVal = rateRow?.value as any;
+      return (rateVal && typeof rateVal === 'object' && typeof rateVal.rate === 'number')
+        ? rateVal.rate
+        : (typeof rateVal === 'number' ? rateVal : 0.20);
+    };
+
+    const buildProRataPreview = async () => {
+      const { data: members } = await supabase
+        .from('members')
+        .select('id, employee_id, full_name, share_capital_amount')
+        .eq('status', 'active');
+
+      const { data: earningsRows } = await supabase
+        .from('loans')
+        .select('principal_amount')
+        .eq('status', 'fully_paid');
+
+      const interestRate = await getDividendInterestRate();
+      const totalShareCapital = (members ?? []).reduce(
+        (sum: number, r: any) => sum + Number(r.share_capital_amount || 0),
+        0,
+      );
+      const totalCooperativeEarnings = (earningsRows ?? []).reduce(
+        (sum: number, r: any) => sum + Number(r.principal_amount || 0) * interestRate,
+        0,
+      );
+
+      const allocations = (members ?? [])
+        .map((m: any) => {
+          const share = Number(m.share_capital_amount || 0);
+          const ownership = totalShareCapital > 0 ? share / totalShareCapital : 0;
+          return {
+            member_id: m.id,
+            employee_id: m.employee_id,
+            member_full_name: m.full_name,
+            member_share_capital: share,
+            ownership_percent: ownership,
+            profit_share_estimated: totalCooperativeEarnings * ownership,
+          };
+        })
+        .sort((a: any, b: any) => b.member_share_capital - a.member_share_capital);
+
+      return {
+        total_share_capital: totalShareCapital,
+        total_cooperative_earnings: totalCooperativeEarnings,
+        interest_rate: interestRate,
+        member_count: allocations.length,
+        allocations,
+        generated_at: new Date().toISOString(),
+      };
+    };
+
+    // GET /preview - live pro-rated allocation using current active member shares
+    if (path === '/preview' && req.method === 'GET') {
+      requirePrivileged();
+      return json(await buildProRataPreview());
+    }
+
     // GET /periods
     if (path === '/periods' && req.method === 'GET') {
       const { data } = await supabase.from('dividend_periods_view').select('*');
       return json(data || []);
+    }
+
+    // POST /periods (Create new period)
+    if (path === '/periods' && req.method === 'POST') {
+      requirePrivileged();
+      const { fiscal_year } = await req.json();
+      
+      if (!fiscal_year) return json({ error: 'fiscal_year is required' }, 400);
+
+      const { data, error } = await supabase
+        .from('dividend_periods')
+        .insert({ 
+          fiscal_year, 
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) return json({ error: error.message }, 400);
+
+      // Automatically initialize allocations so the table isn't empty
+      const { data: members } = await supabase
+        .from('members')
+        .select('id, employee_id, full_name, share_capital_amount')
+        .eq('status', 'active');
+
+      if (members && members.length > 0) {
+        const totalShareCapital = members.reduce((sum: number, r: any) => sum + Number(r.share_capital_amount || 0), 0);
+        
+        const allocRows = members.map((m: any) => {
+          const share = Number(m.share_capital_amount || 0);
+          const ownership = totalShareCapital > 0 ? share / totalShareCapital : 0;
+          return {
+            dividend_period_id: data.id,
+            member_id: m.id,
+            member_share_capital: share,
+            ownership_percent: ownership,
+            profit_share_estimated: 0, // Will be updated when earnings are refreshed
+          };
+        });
+
+        await supabase.from('dividend_allocations').insert(allocRows);
+        await supabase.from('dividend_periods').update({
+          total_share_capital: totalShareCapital,
+        }).eq('id', data.id);
+      }
+
+      return json(data);
     }
 
     // GET /allocations?period_id=...
@@ -156,7 +277,7 @@ Deno.serve(async (req: Request) => {
         // Snapshot totals (share capital ONLY)
         const { data: sharesAgg } = await supabase
           .from('members')
-          .select('share_capital_amount')
+          .select('id, employee_id, full_name, share_capital_amount')
           .eq('status', 'active');
 
         const totalShareCapital = (sharesAgg ?? []).reduce((sum: number, r: any) => sum + Number(r.share_capital_amount || 0), 0);
@@ -167,7 +288,9 @@ Deno.serve(async (req: Request) => {
           .select('principal_amount')
           .eq('status', 'fully_paid');
 
-        const earnings = (earningsRow ?? []).reduce((sum: number, r: any) => sum + Number(r.principal_amount || 0) * 0.20, 0);
+        const interestRate = await getDividendInterestRate();
+
+        const earnings = (earningsRow ?? []).reduce((sum: number, r: any) => sum + Number(r.principal_amount || 0) * interestRate, 0);
 
 
         // Update period totals
@@ -182,12 +305,8 @@ Deno.serve(async (req: Request) => {
         // Replace allocations (read-only after final lock will be handled by UI + RLS improvements)
         await supabase.from('dividend_allocations').delete().eq('dividend_period_id', periodId);
 
-        const { data: members } = await supabase
-          .from('members')
-          .select('id, employee_id, full_name, share_capital_amount')
-          .eq('status', 'active');
-
-        const allocRows = (members ?? []).map((m: any) => {
+        const members = sharesAgg || [];
+        const allocRows = members.map((m: any) => {
           const share = Number(m.share_capital_amount || 0);
           const ownership = totalShareCapital > 0 ? share / totalShareCapital : 0;
           return {
@@ -268,4 +387,3 @@ Deno.serve(async (req: Request) => {
     return json({ error: message }, 500);
   }
 });
-

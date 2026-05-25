@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 
 import { PageHeader } from '../components/common/PageHeader';
-import { StatCard } from '../components/common/StatCard';
 import { Card } from '../components/common/DataCard';
 import { ChartCard } from '../components/dashboard/ChartCard';
 import {
@@ -88,6 +87,7 @@ export function DashboardPage() {
       const token = localStorage.getItem('auth_token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       };
       if (withAuth && token) {
         headers.Authorization = `Bearer ${token}`;
@@ -182,153 +182,189 @@ export function DashboardPage() {
 
   const m: any = metrics;
 
-  return (
-    <div className="p-6 lg:p-8">
-      <PageHeader title="Dashboard" description="Cooperative financial analytics overview" />
+  const cardStyles: Record<string, string> = {
+    blue: 'bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20 shadow-blue-500/5 ring-1 ring-blue-500/10',
+    green: 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10',
+    yellow: 'bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 shadow-amber-500/5 ring-1 ring-amber-500/10',
+    purple: 'bg-purple-500/5 text-purple-600 dark:text-purple-400 border-purple-500/20 shadow-purple-500/5 ring-1 ring-purple-500/10',
+    red: 'bg-rose-500/5 text-rose-600 dark:text-rose-400 border-rose-500/20 shadow-rose-500/5 ring-1 ring-rose-500/10',
+    gray: 'bg-slate-500/5 text-slate-600 dark:text-slate-400 border-slate-500/20 shadow-slate-500/5 ring-1 ring-slate-500/10',
+  };
 
-      {/* Dashboard Widgets */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
+  const MetricCard = ({ title, value, subtitle, icon: Icon, color }: any) => (
+    <div className={`p-6 rounded-[2.5rem] border backdrop-blur-2xl relative overflow-hidden group transition-all duration-700 hover:shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] hover:-translate-y-2 ${cardStyles[color]}`}>
+      <div className="absolute -right-4 -bottom-4 opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700">
+        <Icon className="w-24 h-24" />
+      </div>
+      <div className="relative z-10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit transition-transform duration-500 group-hover:scale-110">
+            <Icon className="w-5 h-5" />
+          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">{title}</p>
+        </div>
+        <h3 className="text-2xl font-black tracking-tighter mb-1">{value}</h3>
+        {subtitle && <p className="text-[11px] font-bold opacity-60 flex items-center gap-1">{subtitle}</p>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="p-6 lg:p-8 bg-slate-50/50 dark:bg-transparent min-h-screen">
+      <PageHeader title="Overview" description="Real-time cooperative financial intelligence" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <MetricCard
           title="Total Share Capital"
           value={formatCurrency(safeNumber(m?.total_share_capital, 0))}
-          icon={<Building2 className="w-6 h-6" />}
+          icon={Building2}
           color="blue"
         />
-
-        <StatCard
+        <MetricCard
           title="Cash on Hand"
           value={formatCurrency(safeNumber(m?.cash_on_hand, 0))}
-          icon={<Wallet className="w-6 h-6" />}
+          icon={Wallet}
           color="gray"
         />
-
-        <StatCard
-          title="Total Active Loans"
+        <MetricCard
+          title="Active Loans"
           value={safeNumber(m?.active_loans, 0)}
-          subtitle={formatCurrency(safeNumber(m?.outstanding_balance, 0)) + ' outstanding'}
-          icon={<DollarSign className="w-6 h-6" />}
+          subtitle={`${formatCurrency(safeNumber(m?.outstanding_balance, 0))} outstanding`}
+          icon={DollarSign}
           color="green"
         />
-
-        <StatCard
-          title="Outstanding Balances"
+        <MetricCard
+          title="Outstanding"
           value={formatCurrency(safeNumber(m?.outstanding_balance, 0))}
-          icon={<CreditCard className="w-6 h-6" />}
+          icon={CreditCard}
           color="yellow"
         />
-
-        <StatCard
+        <MetricCard
           title="Due This Cutoff"
           value={safeNumber(m?.due_this_cutoff, m?.due_today, 0)}
-          icon={<Clock className="w-6 h-6" />}
+          icon={Clock}
           color="blue"
         />
-
-        <StatCard
-          title="Collected This Cutoff"
+        <MetricCard
+          title="Collected"
           value={formatCurrency(safeNumber(m?.collected_this_cutoff, 0))}
-          icon={<CheckCircle2 className="w-6 h-6" />}
+          icon={CheckCircle2}
           color="green"
         />
-
-        <StatCard
-          title="Total Earnings"
+        <MetricCard
+          title="Coop Earnings"
           value={formatCurrency(safeNumber(m?.total_earnings, 0))}
-          icon={<TrendingUp className="w-6 h-6" />}
+          icon={TrendingUp}
           color="purple"
         />
-
-        <StatCard
-          title="Delayed Payments"
+        <MetricCard
+          title="Delinquent"
           value={safeNumber(m?.delayed_payments, m?.overdue_payments, 0)}
-          icon={<AlertCircle className="w-6 h-6" />}
+          icon={AlertCircle}
           color="red"
         />
       </div>
 
-      {/* Analytics Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Analytics</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard
-            title="Monthly Collections"
-            subtitle="Collected amounts per month"
-            icon={<Calendar className="w-5 h-5" />}
-          >
-            {monthlyCollections.length === 0 ? (
-              <div className="text-sm text-gray-500">No data available</div>
-            ) : (
-              <MonthlyCollectionsChart data={monthlyCollections as any} />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Loan Distribution"
-            subtitle="Active loan allocation by status"
-            icon={<DollarSign className="w-5 h-5" />}
-          >
-            {loanDistribution.length === 0 ? (
-              <div className="text-sm text-gray-500">No data available</div>
-            ) : (
-              <LoanDistributionChart data={loanDistribution as any} />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Financial Trends"
-            subtitle="Outstanding vs due trend"
-            icon={<CreditCard className="w-5 h-5" />}
-          >
-            {financialTrends.length === 0 ? (
-              <div className="text-sm text-gray-500">No data available</div>
-            ) : (
-              <FinancialTrendsChart data={financialTrends as any} />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Earnings Trends"
-            subtitle="Monthly earnings curve"
-            icon={<TrendingUp className="w-5 h-5" />}
-          >
-            {earningsTrends.length === 0 ? (
-              <div className="text-sm text-gray-500">No data available</div>
-            ) : (
-              <EarningsTrendsChart data={earningsTrends as any} />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Delinquency Reports"
-            subtitle="Delayed payment count by bucket"
-            icon={<AlertCircle className="w-5 h-5" />}
-          >
-            {delinquencyReports.length === 0 ? (
-              <div className="text-sm text-gray-500">No data available</div>
-            ) : (
-              <DelinquencyReportsChart data={delinquencyReports as any} />
-            )}
-          </ChartCard>
+      <div className="mb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+          <div>
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Market Analytics</h2>
+            <p className="text-gray-500 font-bold tracking-tight uppercase text-[11px] mt-1 opacity-60">Portfolio Performance Matrix</p>
+          </div>
+          <div className="px-5 py-2.5 text-[11px] font-black uppercase bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/20 cursor-default flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            Live Data Stream
+          </div>
+        </div>
+        
+        <div className="flex flex-col gap-10">
+          {[
+            { 
+              title: "Monthly Collections", 
+              data: monthlyCollections, 
+              Chart: MonthlyCollectionsChart, 
+              color: "blue", 
+              icon: Calendar,
+              subtitle: "Cash flow velocity over the trailing 12 months"
+            },
+            { 
+              title: "Loan Distribution", 
+              data: loanDistribution, 
+              Chart: LoanDistributionChart, 
+              color: "emerald", 
+              icon: DollarSign,
+              subtitle: "Asset allocation by risk profile and status"
+            },
+            { 
+              title: "Financial Trends", 
+              data: financialTrends, 
+              Chart: FinancialTrendsChart, 
+              color: "amber", 
+              icon: CreditCard,
+              subtitle: "Comparative analysis of forecast vs actuals"
+            },
+            { 
+              title: "Earnings Trends", 
+              data: earningsTrends, 
+              Chart: EarningsTrendsChart, 
+              color: "purple", 
+              icon: TrendingUp,
+              subtitle: "Projected dividend yields and net interest income"
+            },
+          ].map((item, idx) => (
+            <ChartCard
+              key={idx}
+              title={item.title}
+              subtitle={item.subtitle}
+              icon={<item.icon className="w-5 h-5" />}
+              className={`
+                rounded-[3rem] border transition-all duration-700 hover:scale-[1.01]
+                ${item.color === 'blue' ? 'border-blue-500/10 bg-white dark:bg-slate-900 shadow-2xl shadow-blue-500/5' : ''}
+                ${item.color === 'emerald' ? 'border-emerald-500/10 bg-white dark:bg-slate-900 shadow-2xl shadow-emerald-500/5' : ''}
+                ${item.color === 'amber' ? 'border-amber-500/10 bg-white dark:bg-slate-900 shadow-2xl shadow-amber-500/5' : ''}
+                ${item.color === 'purple' ? 'border-purple-500/10 bg-white dark:bg-slate-900 shadow-2xl shadow-purple-500/5' : ''}
+              `}
+            >
+              <div className="relative group/chart p-2">
+                {/* Ambient Radial Glow */}
+                <div className={`absolute -top-24 -left-24 w-64 h-64 blur-[120px] opacity-[0.12] pointer-events-none rounded-full
+                  ${item.color === 'blue' ? 'bg-blue-600' : ''}
+                  ${item.color === 'emerald' ? 'bg-emerald-600' : ''}
+                  ${item.color === 'amber' ? 'bg-amber-600' : ''}
+                  ${item.color === 'purple' ? 'bg-purple-600' : ''}
+                `} />
+                
+                {item.data.length === 0 ? (
+                  <div className="text-sm text-gray-400 py-32 text-center font-bold tracking-tight uppercase opacity-40">
+                    Awaiting Data Stream...
+                  </div>
+                ) : (
+                  <div className="relative z-10 p-4 h-[300px]">
+                    <item.Chart data={item.data as any} />
+                  </div>
+                )}
+              </div>
+            </ChartCard>
+          ))}
 
           <div className="hidden lg:block" />
         </div>
       </div>
 
-      {/* Recent Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card padding="none">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Active Loans</h2>
+        <Card padding="none" className="rounded-[2.5rem] overflow-hidden border-gray-100 dark:border-gray-800 shadow-2xl shadow-gray-200/20">
+          <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Portfolio Activity</h2>
           </div>
-          <div className="p-6">
+          <div className="p-8">
             {activeLoans.length === 0 ? (
               <div className="text-center text-gray-500 py-8">No active loans</div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {activeLoans.slice(0, 5).map((loan) => (
                   <div
                     key={loan.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    className="flex items-center justify-between p-5 bg-gray-50/50 dark:bg-gray-800/50 rounded-[1.5rem] hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition-all duration-300 group cursor-default shadow-sm hover:shadow-xl"
                   >
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">{loan.member_name}</p>
@@ -340,7 +376,7 @@ export function DashboardPage() {
                       <p className="font-medium text-gray-900 dark:text-white">{loan.payments_made}/10</p>
                       <p className="text-sm text-gray-500 flex items-center gap-1">
                         {loan.missed_payment_count > 0 && (
-                          <span className="text-red-500">
+                          <span className="text-rose-500">
                             <ArrowDownRight className="w-4 h-4" />
                           </span>
                         )}
@@ -354,9 +390,9 @@ export function DashboardPage() {
           </div>
         </Card>
 
-        <Card padding="none">
+        <Card padding="none" className="rounded-[2rem] overflow-hidden border-gray-100 dark:border-gray-800">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cutoff Periods</h2>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Cutoff Periods</h2>
           </div>
           <div className="p-6">
             {cutoffs.length === 0 ? (
@@ -366,7 +402,7 @@ export function DashboardPage() {
                 {cutoffs.slice(0, 4).map((cutoff) => (
                   <div
                     key={cutoff.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition-all cursor-default"
                   >
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">{formatDate(cutoff.cutoff_date)}</p>
@@ -394,4 +430,3 @@ export function DashboardPage() {
     </div>
   );
 }
-

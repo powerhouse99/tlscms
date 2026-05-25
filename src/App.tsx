@@ -11,6 +11,7 @@ import { LoansPage } from './pages/LoansPage';
 import { ShareCapitalPage } from './pages/ShareCapitalPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ProfileSettingsPage } from './pages/ProfileSettingsPage';
 import { AuditTrailPage } from './pages/AuditTrailPage';
 import { BackupPage } from './pages/BackupPage';
 import { CutoffPage } from './pages/CutoffPage';
@@ -128,17 +129,6 @@ function App() {
           }
         />
         <Route
-          path="/payments"
-          element={
-            <PrivateRoute>
-              <div className="p-6 lg:p-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-                <p className="text-gray-500 mt-2">Payment records can be accessed through the Loans section.</p>
-              </div>
-            </PrivateRoute>
-          }
-        />
-        <Route
           path="/cutoffs"
           element={
             <PrivateRoute>
@@ -174,14 +164,6 @@ function App() {
           }
         />
         <Route
-          path="/activity"
-          element={
-            <PrivateRoute>
-              <AuditTrailPage />
-            </PrivateRoute>
-          }
-        />
-        <Route
           path="/notifications"
           element={
             <PrivateRoute>
@@ -197,6 +179,14 @@ function App() {
           element={
             <PrivateRoute>
               <SettingsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <ProfileSettingsPage />
             </PrivateRoute>
           }
         />

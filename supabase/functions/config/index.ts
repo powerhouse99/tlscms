@@ -25,6 +25,18 @@ function getUserId(req: Request): string | null {
   }
 }
 
+function getTokenData(req: Request): any | null {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return null;
+
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    return JSON.parse(atob(token));
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -36,8 +48,70 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const path = url.pathname.split('/config')[1] || '/';
   const userId = getUserId(req);
+  const tokenData = getTokenData(req);
 
   try {
+    // Reset operational data while preserving tables, users, roles, and configuration.
+    if (path === '/reset-data' && req.method === 'POST') {
+      if (tokenData?.type !== 'admin' || tokenData?.role !== 'admin') {
+        return new Response(
+          JSON.stringify({ error: 'Only admins can reset system data' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const body = await req.json().catch(() => ({}));
+      if (body.confirmation !== 'RESET DATA') {
+        return new Response(
+          JSON.stringify({ error: 'Confirmation phrase is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const resetTables = [
+        'loan_payments',
+        'loan_schedules',
+        'dividend_allocations',
+        'loans',
+        'share_capitals',
+        'cutoff_periods',
+        'dividend_periods',
+        'notifications',
+        'backup_logs',
+        'activity_logs',
+        'audit_logs',
+        'members',
+      ];
+
+      const results: Array<{ table: string; error?: string }> = [];
+
+      for (const table of resetTables) {
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (error) {
+          results.push({ table, error: error.message });
+        } else {
+          results.push({ table });
+        }
+      }
+
+      const failed = results.filter((result) => result.error);
+      if (failed.length > 0) {
+        return new Response(
+          JSON.stringify({ error: 'Some data could not be reset', results }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, results }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get all config
     if (path === '/' && req.method === 'GET') {
       const { data, error } = await supabase
@@ -97,11 +171,13 @@ Deno.serve(async (req: Request) => {
       // Update config
       const { data, error } = await supabase
         .from('system_config')
-        .update({
+        .upsert({
+          config_key,
           config_value,
+          category: body.category || 'system',
+          description: body.description || null,
           updated_at: new Date().toISOString()
-        })
-        .eq('config_key', config_key)
+        }, { onConflict: 'config_key' })
         .select()
         .single();
 

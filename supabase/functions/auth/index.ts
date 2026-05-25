@@ -157,14 +157,15 @@ Deno.serve(async (req: Request) => {
       // Verify password
       let passwordValid = false;
 
-      if (email.toLowerCase() === 'admin@teacherscooperative.com' && password === 'Admin@2024!') {
+      try {
+        passwordValid = await bcrypt.compare(password, user.password_hash);
+      } catch (e) {
+        passwordValid = password === user.password_hash;
+      }
+
+      const seededAdminHash = '$2a$10$RqZ8KvJ3hF5wY6nQ2xM8vO7Y8Z9a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r';
+      if (!passwordValid && email.toLowerCase() === 'admin@teacherscooperative.com' && user.password_hash === seededAdminHash && password === 'Admin@2024!') {
         passwordValid = true;
-      } else {
-        try {
-          passwordValid = await bcrypt.compare(password, user.password_hash);
-        } catch (e) {
-          passwordValid = password === user.password_hash;
-        }
       }
 
       if (!passwordValid) {
@@ -496,14 +497,15 @@ Deno.serve(async (req: Request) => {
         }
 
         let passwordValid = false;
-        if (user.email.toLowerCase() === 'admin@teacherscooperative.com') {
+        try {
+          passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
+        } catch (e) {
+          passwordValid = currentPassword === user.password_hash;
+        }
+
+        const seededAdminHash = '$2a$10$RqZ8KvJ3hF5wY6nQ2xM8vO7Y8Z9a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r';
+        if (!passwordValid && user.email.toLowerCase() === 'admin@teacherscooperative.com' && user.password_hash === seededAdminHash) {
           passwordValid = currentPassword === 'Admin@2024!';
-        } else {
-          try {
-            passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
-          } catch (e) {
-            passwordValid = currentPassword === user.password_hash;
-          }
         }
 
         if (!passwordValid) {
@@ -535,6 +537,100 @@ Deno.serve(async (req: Request) => {
 
         return new Response(
           JSON.stringify({ success: true, message: 'Password changed successfully' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (e) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Admin endpoint: reset a member's login username/password.
+    if (path === '/reset-member-credentials' && req.method === 'POST') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const body = await req.json();
+      const { member_id, employee_id, password } = body;
+
+      if (!member_id) {
+        return new Response(
+          JSON.stringify({ error: 'member_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      try {
+        const tokenData = JSON.parse(atob(token));
+        if (tokenData.type !== 'admin' || tokenData.role !== 'admin') {
+          return new Response(
+            JSON.stringify({ error: 'Only admins can reset member credentials' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: member, error: memberError } = await supabase
+          .from('members')
+          .select('id, employee_id, full_name')
+          .eq('id', member_id)
+          .single();
+
+        if (memberError || !member) {
+          return new Response(
+            JSON.stringify({ error: 'Member not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const nextEmployeeId = String(employee_id || member.employee_id).toUpperCase();
+        const nextPassword = String(password || `${nextEmployeeId.slice(-3)}123`);
+
+        const { data, error } = await supabase
+          .from('members')
+          .update({
+            employee_id: nextEmployeeId,
+            password_hash: nextPassword,
+            updated_by: tokenData.user_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', member_id)
+          .select('id, employee_id, full_name')
+          .single();
+
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        await supabase.from('audit_logs').insert({
+          user_id: tokenData.user_id,
+          action: 'RESET_MEMBER_CREDENTIALS',
+          table_name: 'members',
+          record_id: member_id,
+          old_values: { employee_id: member.employee_id },
+          new_values: { employee_id: nextEmployeeId },
+          ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            member: data,
+            credentials: {
+              employee_id: nextEmployeeId,
+              temporary_password: nextPassword,
+            },
+          }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (e) {

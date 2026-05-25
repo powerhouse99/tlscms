@@ -174,59 +174,67 @@ export function MemberPortalPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <Card className="bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20 shadow-blue-500/5 ring-1 ring-blue-500/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">Share Capital</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">Share Capital</p>
                 <p className="text-2xl font-bold mt-1">
                   {formatCurrency(member.share_capital_amount)}
                 </p>
-                <p className="text-blue-100 text-xs mt-2">
+                <p className="text-xs mt-2 opacity-70">
                   {shareCapital ? `Paid on ${formatDate(shareCapital.payment_date)}` : 'Not yet contributed'}
                 </p>
               </div>
-              <DollarSign className="w-10 h-10 text-blue-200" />
+              <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit">
+                <DollarSign className="w-6 h-6" />
+              </div>
             </div>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <Card className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-emerald-500/5 ring-1 ring-emerald-500/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm">Total Loans Availed</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">Total Loans Availed</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(member.total_loans)}</p>
-                <p className="text-green-100 text-xs mt-2">
+                <p className="text-xs mt-2 opacity-70">
                   {loans.length} loan{loans.length !== 1 ? 's' : ''} total
                 </p>
               </div>
-              <CreditCard className="w-10 h-10 text-green-200" />
+              <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit">
+                <CreditCard className="w-6 h-6" />
+              </div>
             </div>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+          <Card className="bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 shadow-amber-500/5 ring-1 ring-amber-500/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-amber-100 text-sm">Total Paid</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">Total Paid</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(member.total_paid)}</p>
-                <p className="text-amber-100 text-xs mt-2">
+                <p className="text-xs mt-2 opacity-70">
                   {payments.length} payment{payments.length !== 1 ? 's' : ''} made
                 </p>
               </div>
-              <CheckCircle className="w-10 h-10 text-amber-200" />
+              <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit">
+                <CheckCircle className="w-6 h-6" />
+              </div>
             </div>
           </Card>
 
-          <Card className={`bg-gradient-to-br ${member.remaining_balance > 0 ? 'from-red-500 to-red-600' : 'from-gray-500 to-gray-600'} text-white`}>
+          <Card className={member.remaining_balance > 0 ? 'bg-rose-500/5 text-rose-600 dark:text-rose-400 border-rose-500/20 shadow-rose-500/5 ring-1 ring-rose-500/10' : 'bg-slate-500/5 text-slate-600 dark:text-slate-400 border-slate-500/20 shadow-slate-500/5 ring-1 ring-slate-500/10'}>
             <div className="flex items-center justify-between">
               <div>
-                <p className={`${member.remaining_balance > 0 ? 'text-red-100' : 'text-gray-100'} text-sm`}>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">
                   Remaining Balance
                 </p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(member.remaining_balance)}</p>
-                <p className={`${member.remaining_balance > 0 ? 'text-red-100' : 'text-gray-100'} text-xs mt-2`}>
+                <p className="text-xs mt-2 opacity-70">
                   {member.remaining_balance > 0 ? 'Outstanding balance' : 'Fully paid'}
                 </p>
               </div>
-              <Wallet className={`w-10 h-10 ${member.remaining_balance > 0 ? 'text-red-200' : 'text-gray-200'}`} />
+              <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit">
+                <Wallet className="w-6 h-6" />
+              </div>
             </div>
           </Card>
         </div>

@@ -8,10 +8,10 @@ interface MemberFormModalProps {
     id: string;
     employee_id: string;
     full_name: string;
-    position?: string;
-    grade_handled?: string;
-    contact_number?: string;
-    address?: string;
+    position?: string | null;
+    grade_handled?: string | null;
+    contact_number?: string | null;
+    address?: string | null;
     date_joined: string;
     status: string;
   };
@@ -42,9 +42,7 @@ export function MemberFormModal({ onClose, onSuccess, member }: MemberFormModalP
 
     try {
       const token = localStorage.getItem('auth_token');
-      const url = member
-        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/members/${member.id}`
-        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/members`;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/members`;
 
       const response = await fetch(url, {
         method: member ? 'PUT' : 'POST',
@@ -52,7 +50,7 @@ export function MemberFormModal({ onClose, onSuccess, member }: MemberFormModalP
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(member ? { ...formData, id: member.id } : formData),
       });
 
       const data = await response.json();

@@ -5,7 +5,7 @@ import type { MemberSummaryView, CutoffSummaryView } from '../../types/database'
 import { formatCurrency } from '../../utils/formatters';
 
 interface NewLoanModalProps {
-  cutoff: CutoffSummaryView;
+  cutoff?: CutoffSummaryView;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -116,10 +116,14 @@ export function NewLoanModal({ cutoff, onClose, onSuccess }: NewLoanModalProps) 
         {/* Cutoff Info */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Processing loan for cutoff: {cutoff.cutoff_date}
+            {cutoff
+              ? `Processing loan for cutoff: ${cutoff.cutoff_date}`
+              : 'Processing loan based on the selected release date'}
           </p>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            Remaining capacity: {formatCurrency(cutoff.remaining_capacity)}
+            {cutoff
+              ? `Remaining capacity: ${formatCurrency(cutoff.remaining_capacity)}`
+              : 'Cutoff rule enforcement is currently off.'}
           </p>
         </div>
 

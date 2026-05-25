@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, CreditCard, Lock, AlertCircle, Loader2, ArrowLeft, HelpCircle } from 'lucide-react';
+import { CreditCard, Lock, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 
 export function MemberLoginPage() {
   const navigate = useNavigate();
@@ -8,7 +8,6 @@ export function MemberLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,31 +136,9 @@ export function MemberLoginPage() {
                 </button>
               </form>
 
-              {/* Help Section */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setShowHelp(!showHelp)}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  How do I login?
-                </button>
-
-                {showHelp && (
-                  <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-                    <p className="font-medium text-gray-900 dark:text-white mb-2">Default Password Format:</p>
-                    <p className="mb-2">Your default password is the <strong>last 3 characters</strong> of your Employee ID followed by <strong>123</strong>.</p>
-                    <div className="bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 font-mono">
-                      <p className="text-xs text-gray-500 mb-1">Example:</p>
-                      <p>Employee ID: <span className="text-blue-600">EMO-001</span></p>
-                      <p>Default Password: <span className="text-green-600">001123</span></p>
-                    </div>
-                    <p className="mt-3 text-xs text-gray-500">
-                      Contact the cooperative office if you need assistance with your login credentials.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <p className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+                Contact the cooperative office if you need help with your login credentials.
+              </p>
             </div>
           </div>
 
