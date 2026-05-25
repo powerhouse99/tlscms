@@ -21,7 +21,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.split('/dashboard')[1] || '/';
+  let path = url.pathname.split('/dashboard')[1] || '/';
+  // normalize: remove trailing slashes
+  path = path.replace(/\/+$/, '');
+
+
+
 
   try {
     // Dashboard metrics
@@ -54,7 +59,7 @@ Deno.serve(async (req: Request) => {
 
     // Cutoffs
     if (path === '/cutoffs' && req.method === 'GET') {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('cutoff_summary_view')
         .select('*')
         .order('cutoff_date', { ascending: false })
@@ -66,10 +71,71 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Analytics
+    if (path === '/analytics/monthly-collections' && req.method === 'GET') {
+      const { data } = await supabase
+        .from('dashboard_monthly_collections')
+        .select('*')
+        .order('month', { ascending: true });
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (path === '/analytics/loan-distribution' && req.method === 'GET') {
+
+      const { data } = await supabase
+        .from('dashboard_loan_distribution')
+        .select('*');
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (path === '/analytics/financial-trends' && req.method === 'GET') {
+      const { data } = await supabase
+        .from('dashboard_financial_trends')
+        .select('*')
+        .order('month', { ascending: true });
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (path === '/analytics/earnings-trends' && req.method === 'GET') {
+      const { data } = await supabase
+        .from('dashboard_earnings_trends')
+        .select('*')
+        .order('month', { ascending: true });
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (path === '/analytics/delinquency-reports' && req.method === 'GET') {
+      const { data } = await supabase
+        .from('dashboard_delinquency_reports')
+        .select('*');
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Not found' }),
       { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
 
   } catch (error) {
     console.error('Dashboard error:', error);

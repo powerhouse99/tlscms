@@ -14,6 +14,9 @@ import { SettingsPage } from './pages/SettingsPage';
 import { AuditTrailPage } from './pages/AuditTrailPage';
 import { BackupPage } from './pages/BackupPage';
 import { CutoffPage } from './pages/CutoffPage';
+import { DividendsPage } from './pages/DividendsPage';
+import { RouteRestore } from './RouteRestore';
+
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, checkAuth, isLoading } = useAuthStore();
@@ -71,9 +74,12 @@ function MemberRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Router>
+      <RouteRestore />
       <Routes>
+
         {/* Admin Login */}
         <Route path="/login" element={<LoginPage />} />
+
 
         {/* Member Login */}
         <Route path="/member-login" element={<MemberLoginPage />} />
@@ -140,6 +146,16 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        <Route
+          path="/dividends"
+          element={
+            <PrivateRoute>
+              <DividendsPage />
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/reports"
           element={
@@ -148,6 +164,7 @@ function App() {
             </PrivateRoute>
           }
         />
+
         <Route
           path="/audit"
           element={

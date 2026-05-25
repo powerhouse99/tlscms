@@ -27,7 +27,9 @@ const navigation = [
   { name: 'Loans', href: '/loans', icon: DollarSign, roles: ['admin', 'treasurer', 'staff', 'auditor'] },
   { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'treasurer'] },
   { name: 'Cutoffs', href: '/cutoffs', icon: Calendar, roles: ['admin', 'treasurer'] },
+  { name: 'Dividends', href: '/dividends', icon: BarChart3, roles: ['admin', 'auditor', 'treasurer'] },
   { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['admin', 'auditor', 'treasurer'] },
+
   { name: 'Audit Trail', href: '/audit', icon: Shield, roles: ['admin', 'auditor'] },
   { name: 'Activity Logs', href: '/activity', icon: History, roles: ['admin', 'auditor'] },
   { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['admin', 'treasurer', 'staff'] },

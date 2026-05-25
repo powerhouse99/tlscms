@@ -7,53 +7,164 @@ import {
   CreditCard,
   Building2,
   Calendar,
-  ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Wallet,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
+
 import { PageHeader } from '../components/common/PageHeader';
 import { StatCard } from '../components/common/StatCard';
 import { Card } from '../components/common/DataCard';
-import type { DashboardMetrics, ActiveLoanView, CutoffSummaryView } from '../types/database';
+import { ChartCard } from '../components/dashboard/ChartCard';
+import {
+  MonthlyCollectionsChart,
+  LoanDistributionChart,
+  FinancialTrendsChart,
+  EarningsTrendsChart,
+  DelinquencyReportsChart,
+} from '../components/dashboard/charts';
+
+import type {
+  DashboardMetrics,
+  ActiveLoanView,
+  CutoffSummaryView,
+  MonthlyCollectionsPoint,
+  LoanDistributionPoint,
+  FinancialTrendPoint,
+  EarningsTrendPoint,
+  DelinquencyReportPoint,
+} from '../types/database';
+
 import { formatCurrency, formatDate } from '../utils/formatters';
+
+function safeNumber(v: unknown, fallback = 0) {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [activeLoans, setActiveLoans] = useState<ActiveLoanView[]>([]);
   const [cutoffs, setCutoffs] = useState<CutoffSummaryView[]>([]);
+
+  const [monthlyCollections, setMonthlyCollections] = useState<MonthlyCollectionsPoint[]>([]);
+  const [loanDistribution, setLoanDistribution] = useState<LoanDistributionPoint[]>([]);
+  const [financialTrends, setFinancialTrends] = useState<FinancialTrendPoint[]>([]);
+  const [earningsTrends, setEarningsTrends] = useState<EarningsTrendPoint[]>([]);
+  const [delinquencyReports, setDelinquencyReports] = useState<DelinquencyReportPoint[]>([]);
+
   const [loading, setLoading] = useState(true);
 
+  // Preserve scroll position across refresh/back-navigation for a better UX.
   useEffect(() => {
-    fetchDashboardData();
+    const key = 'dashboard_scroll_y';
+
+    const savedY = sessionStorage.getItem(key);
+    if (savedY) {
+      const y = Number(savedY);
+      if (Number.isFinite(y)) {
+        window.scrollTo({ top: y });
+      }
+    }
+
+    const onScroll = () => {
+      sessionStorage.setItem(key, String(window.scrollY));
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    void fetchDashboardData();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
   const fetchDashboardData = async () => {
-    try {
+    setLoading(true);
+
+    const runFetches = async (withAuth: boolean) => {
       const token = localStorage.getItem('auth_token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
+      if (withAuth && token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
-      const [metricsRes, loansRes, cutoffsRes] = await Promise.all([
+      const [
+        metricsRes,
+        loansRes,
+        cutoffsRes,
+        monthlyRes,
+        distributionRes,
+        financialRes,
+        earningsRes,
+        delinquencyRes,
+      ] = await Promise.all([
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/metrics`, { headers }),
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/active-loans`, { headers }),
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/cutoffs`, { headers }),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/analytics/monthly-collections`,
+          { headers },
+        ),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/analytics/loan-distribution`,
+          { headers },
+        ),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/analytics/financial-trends`,
+          { headers },
+        ),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/analytics/earnings-trends`,
+          { headers },
+        ),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard/analytics/delinquency-reports`,
+          { headers },
+        ),
       ]);
 
-      if (metricsRes.ok) {
-        const data = await metricsRes.json();
-        setMetrics(data);
-      }
+      return {
+        metricsRes,
+        loansRes,
+        cutoffsRes,
+        monthlyRes,
+        distributionRes,
+        financialRes,
+        earningsRes,
+        delinquencyRes,
+      };
+    };
 
-      if (loansRes.ok) {
-        const data = await loansRes.json();
-        setActiveLoans(data || []);
-      }
+    try {
+      // Try with auth first; if the function is configured to reject auth (or token is invalid), fall back to public.
+      const first = await runFetches(true);
 
-      if (cutoffsRes.ok) {
-        const data = await cutoffsRes.json();
-        setCutoffs(data || []);
-      }
+      const shouldRetryWithoutAuth =
+        first.metricsRes.status === 401 ||
+        first.loansRes.status === 401 ||
+        first.cutoffsRes.status === 401 ||
+        first.monthlyRes.status === 401 ||
+        first.distributionRes.status === 401 ||
+        first.financialRes.status === 401 ||
+        first.earningsRes.status === 401 ||
+        first.delinquencyRes.status === 401;
+
+      const res = shouldRetryWithoutAuth ? await runFetches(false) : first;
+
+      if (res.metricsRes.ok) setMetrics(await res.metricsRes.json());
+      if (res.loansRes.ok) setActiveLoans((await res.loansRes.json()) || []);
+      if (res.cutoffsRes.ok) setCutoffs((await res.cutoffsRes.json()) || []);
+
+      if (res.monthlyRes.ok) setMonthlyCollections((await res.monthlyRes.json()) || []);
+      if (res.distributionRes.ok) setLoanDistribution((await res.distributionRes.json()) || []);
+      if (res.financialRes.ok) setFinancialTrends((await res.financialRes.json()) || []);
+      if (res.earningsRes.ok) setEarningsTrends((await res.earningsRes.json()) || []);
+      if (res.delinquencyRes.ok) setDelinquencyReports((await res.delinquencyRes.json()) || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -69,92 +180,149 @@ export function DashboardPage() {
     );
   }
 
+  const m: any = metrics;
+
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Dashboard"
-        description="Overview of your lending cooperative system"
-      />
+      <PageHeader title="Dashboard" description="Cooperative financial analytics overview" />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Dashboard Widgets */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Share Capital"
-          value={formatCurrency(metrics?.total_share_capital || 0)}
+          value={formatCurrency(safeNumber(m?.total_share_capital, 0))}
           icon={<Building2 className="w-6 h-6" />}
           color="blue"
         />
+
         <StatCard
-          title="Active Loans"
-          value={metrics?.active_loans || 0}
-          subtitle={formatCurrency(metrics?.outstanding_balance || 0) + ' outstanding'}
+          title="Cash on Hand"
+          value={formatCurrency(safeNumber(m?.cash_on_hand, 0))}
+          icon={<Wallet className="w-6 h-6" />}
+          color="gray"
+        />
+
+        <StatCard
+          title="Total Active Loans"
+          value={safeNumber(m?.active_loans, 0)}
+          subtitle={formatCurrency(safeNumber(m?.outstanding_balance, 0)) + ' outstanding'}
           icon={<DollarSign className="w-6 h-6" />}
           color="green"
         />
+
         <StatCard
-          title="Active Members"
-          value={metrics?.active_members || 0}
-          icon={<Users className="w-6 h-6" />}
-          color="gray"
+          title="Outstanding Balances"
+          value={formatCurrency(safeNumber(m?.outstanding_balance, 0))}
+          icon={<CreditCard className="w-6 h-6" />}
+          color="yellow"
         />
+
+        <StatCard
+          title="Due This Cutoff"
+          value={safeNumber(m?.due_this_cutoff, m?.due_today, 0)}
+          icon={<Clock className="w-6 h-6" />}
+          color="blue"
+        />
+
+        <StatCard
+          title="Collected This Cutoff"
+          value={formatCurrency(safeNumber(m?.collected_this_cutoff, 0))}
+          icon={<CheckCircle2 className="w-6 h-6" />}
+          color="green"
+        />
+
         <StatCard
           title="Total Earnings"
-          value={formatCurrency(metrics?.total_earnings || 0)}
+          value={formatCurrency(safeNumber(m?.total_earnings, 0))}
           icon={<TrendingUp className="w-6 h-6" />}
           color="purple"
         />
+
+        <StatCard
+          title="Delayed Payments"
+          value={safeNumber(m?.delayed_payments, m?.overdue_payments, 0)}
+          icon={<AlertCircle className="w-6 h-6" />}
+          color="red"
+        />
       </div>
 
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Due Today</p>
-              <p className="text-3xl font-bold mt-1">{metrics?.due_today || 0}</p>
-              <p className="text-blue-100 text-sm mt-2">Payments to collect</p>
-            </div>
-            <Calendar className="w-12 h-12 text-blue-200" />
-          </div>
-        </Card>
+      {/* Analytics Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Analytics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ChartCard
+            title="Monthly Collections"
+            subtitle="Collected amounts per month"
+            icon={<Calendar className="w-5 h-5" />}
+          >
+            {monthlyCollections.length === 0 ? (
+              <div className="text-sm text-gray-500">No data available</div>
+            ) : (
+              <MonthlyCollectionsChart data={monthlyCollections as any} />
+            )}
+          </ChartCard>
 
-        <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-yellow-100 text-sm">Overdue Payments</p>
-              <p className="text-3xl font-bold mt-1">{metrics?.overdue_payments || 0}</p>
-              <p className="text-yellow-100 text-sm mt-2">Require attention</p>
-            </div>
-            <AlertCircle className="w-12 h-12 text-yellow-200" />
-          </div>
-        </Card>
+          <ChartCard
+            title="Loan Distribution"
+            subtitle="Active loan allocation by status"
+            icon={<DollarSign className="w-5 h-5" />}
+          >
+            {loanDistribution.length === 0 ? (
+              <div className="text-sm text-gray-500">No data available</div>
+            ) : (
+              <LoanDistributionChart data={loanDistribution as any} />
+            )}
+          </ChartCard>
 
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Total Collections</p>
-              <p className="text-3xl font-bold mt-1">{formatCurrency(metrics?.total_historical_collections || 0)}</p>
-              <p className="text-green-100 text-sm mt-2">All time</p>
-            </div>
-            <CreditCard className="w-12 h-12 text-green-200" />
-          </div>
-        </Card>
+          <ChartCard
+            title="Financial Trends"
+            subtitle="Outstanding vs due trend"
+            icon={<CreditCard className="w-5 h-5" />}
+          >
+            {financialTrends.length === 0 ? (
+              <div className="text-sm text-gray-500">No data available</div>
+            ) : (
+              <FinancialTrendsChart data={financialTrends as any} />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title="Earnings Trends"
+            subtitle="Monthly earnings curve"
+            icon={<TrendingUp className="w-5 h-5" />}
+          >
+            {earningsTrends.length === 0 ? (
+              <div className="text-sm text-gray-500">No data available</div>
+            ) : (
+              <EarningsTrendsChart data={earningsTrends as any} />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title="Delinquency Reports"
+            subtitle="Delayed payment count by bucket"
+            icon={<AlertCircle className="w-5 h-5" />}
+          >
+            {delinquencyReports.length === 0 ? (
+              <div className="text-sm text-gray-500">No data available</div>
+            ) : (
+              <DelinquencyReportsChart data={delinquencyReports as any} />
+            )}
+          </ChartCard>
+
+          <div className="hidden lg:block" />
+        </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Recent Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Active Loans */}
         <Card padding="none">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Active Loans
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Active Loans</h2>
           </div>
           <div className="p-6">
             {activeLoans.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                No active loans
-              </div>
+              <div className="text-center text-gray-500 py-8">No active loans</div>
             ) : (
               <div className="space-y-4">
                 {activeLoans.slice(0, 5).map((loan) => (
@@ -163,17 +331,13 @@ export function DashboardPage() {
                     className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {loan.member_name}
-                      </p>
+                      <p className="font-medium text-gray-900 dark:text-white">{loan.member_name}</p>
                       <p className="text-sm text-gray-500">
                         {loan.loan_id} - {formatCurrency(loan.principal_amount)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {loan.payments_made}/{10}
-                      </p>
+                      <p className="font-medium text-gray-900 dark:text-white">{loan.payments_made}/10</p>
                       <p className="text-sm text-gray-500 flex items-center gap-1">
                         {loan.missed_payment_count > 0 && (
                           <span className="text-red-500">
@@ -190,18 +354,13 @@ export function DashboardPage() {
           </div>
         </Card>
 
-        {/* Recent Cutoffs */}
         <Card padding="none">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Cutoff Periods
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cutoff Periods</h2>
           </div>
           <div className="p-6">
             {cutoffs.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                No cutoff periods
-              </div>
+              <div className="text-center text-gray-500 py-8">No cutoff periods</div>
             ) : (
               <div className="space-y-4">
                 {cutoffs.slice(0, 4).map((cutoff) => (
@@ -210,24 +369,20 @@ export function DashboardPage() {
                     className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {formatDate(cutoff.cutoff_date)}
-                      </p>
-                      <p className="text-sm text-gray-500 capitalize">
-                        {cutoff.cutoff_type.replace('_', ' ')}
-                      </p>
+                      <p className="font-medium text-gray-900 dark:text-white">{formatDate(cutoff.cutoff_date)}</p>
+                      <p className="text-sm text-gray-500 capitalize">{cutoff.cutoff_type.replace('_', ' ')}</p>
                     </div>
                     <div className="text-right">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        cutoff.status === 'open'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          cutoff.status === 'open'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
                         {cutoff.status}
                       </span>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {cutoff.borrower_count} borrowers
-                      </p>
+                      <p className="text-sm text-gray-500 mt-1">{cutoff.borrower_count} borrowers</p>
                     </div>
                   </div>
                 ))}
@@ -239,3 +394,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

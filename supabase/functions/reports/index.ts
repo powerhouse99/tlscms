@@ -63,7 +63,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fully Paid Loans Report
-    if (path === '/fully-paid-loans' && req.method === 'GET') {
+    if ((path === '/fully-paid-loans' || path === '/fully-paid') && req.method === 'GET') {
+
       const { data, error } = await supabase
         .from('loans')
         .select('*, member:members(employee_id, full_name, position), cutoff_period:cutoff_periods(*)')
@@ -156,15 +157,24 @@ Deno.serve(async (req: Request) => {
     }
 
     // Member Loan History
+    // GET /member/:memberId
     const memberMatch = path.match(/^\/member\/([a-f0-9-]+)$/);
     if (memberMatch && req.method === 'GET') {
       const memberId = memberMatch[1];
+      const params = new URLSearchParams(url.search);
+      const startDate = params.get('start_date');
+      const endDate = params.get('end_date');
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('loans')
         .select('*, cutoff_period:cutoff_periods(*)')
         .eq('member_id', memberId)
         .order('created_at', { ascending: false });
+
+      if (startDate) query = query.gte('created_at', startDate);
+      if (endDate) query = query.lte('created_at', endDate);
+
+      const { data, error } = await query;
 
       if (error) {
         return new Response(
@@ -179,10 +189,164 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Missed Payment Report
+    // GET /missed-payments?start_date=&end_date=
+    if (path === '/missed-payments' && req.method === 'GET') {
+
+      const params = new URLSearchParams(url.search);
+      const startDate = params.get('start_date');
+      const endDate = params.get('end_date');
+
+      // Prefer a view if it exists; fallback to loan_payments criteria would be implemented later.
+      let query = supabase.from('delayed_payments_view').select('*').order('due_date', { ascending: true });
+      if (startDate) query = query.gte('due_date', startDate);
+      if (endDate) query = query.lte('due_date', endDate);
+
+      const { data, error } = await query;
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Loan Release Report
+    // GET /loan-releases?start_date=&end_date=
+    if (path === '/loan-releases' && req.method === 'GET') {
+      const params = new URLSearchParams(url.search);
+      const startDate = params.get('start_date');
+      const endDate = params.get('end_date');
+
+      let query = supabase
+        .from('loans')
+        .select('*, member:members(employee_id, full_name, position), cutoff_period:cutoff_periods(*)')
+        .eq('status', 'released')
+        .order('release_date', { ascending: false });
+
+      if (startDate) query = query.gte('release_date', startDate);
+      if (endDate) query = query.lte('release_date', endDate);
+
+      const { data, error } = await query;
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Active Loan Report
+    if (path === '/active-loans-full' && req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('active_loans_view')
+        .select('*')
+        .order('release_date', { ascending: false });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Kinsenas Summary Report
+    // GET /kinsenas-summary?start_date=&end_date=
+    if (path === '/kinsenas-summary' && req.method === 'GET') {
+      const params = new URLSearchParams(url.search);
+      const startDate = params.get('start_date');
+      const endDate = params.get('end_date');
+
+      let query = supabase.from('kinsenas_summary_view').select('*').order('period_date', { ascending: false });
+      if (startDate) query = query.gte('period_date', startDate);
+      if (endDate) query = query.lte('period_date', endDate);
+
+      const { data, error } = await query;
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(data || []),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Cash Flow Report
+    // GET /cash-flow?start_date=&end_date=&beginning_cash=
+    // Formula: Beginning Cash + Collections - Loans Released
+    if (path === '/cash-flow' && req.method === 'GET') {
+      const params = new URLSearchParams(url.search);
+      const startDate = params.get('start_date');
+      const endDate = params.get('end_date');
+      const beginningCashRaw = params.get('beginning_cash') || '0';
+      const beginning_cash = Number(beginningCashRaw);
+
+      // Collections
+      let collectionsQuery = supabase.from('loan_payments').select('amount', { count: 'exact' });
+      if (startDate) collectionsQuery = collectionsQuery.gte('payment_date', startDate);
+      if (endDate) collectionsQuery = collectionsQuery.lte('payment_date', endDate);
+      const { data: payments, error: paymentsError } = await collectionsQuery;
+      if (paymentsError) {
+        return new Response(
+          JSON.stringify({ error: paymentsError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const collections = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+      // Loans Released
+      let releasesQuery = supabase.from('loans').select('amount_released', { count: 'exact' });
+      if (startDate) releasesQuery = releasesQuery.gte('release_date', startDate);
+      if (endDate) releasesQuery = releasesQuery.lte('release_date', endDate);
+      const { data: releases, error: releasesError } = await releasesQuery;
+      if (releasesError) {
+        return new Response(
+          JSON.stringify({ error: releasesError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const loans_released = (releases || []).reduce((sum: number, l: any) => sum + Number(l.amount_released || 0), 0);
+
+      const cash_on_hand = beginning_cash + collections - loans_released;
+
+      return new Response(
+        JSON.stringify({
+          beginning_cash,
+          collections,
+          loans_released,
+          cash_on_hand,
+          start_date: startDate || null,
+          end_date: endDate || null,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Not found' }),
+      JSON.stringify({ error: 'Not found', requested_path: path }),
       { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
 
   } catch (error) {
     console.error('Reports error:', error);

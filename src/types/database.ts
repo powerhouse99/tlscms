@@ -235,3 +235,66 @@ export interface CutoffSummaryView {
   active_loans: number;
   pending_loans: number;
 }
+
+// --- Dashboard Analytics DTOs (edge function responses) ---
+
+export interface MonthlyCollectionsPoint {
+  month: string;
+  collected: number;
+}
+
+export interface LoanDistributionPoint {
+  label: string;
+  count: number;
+}
+
+export interface FinancialTrendPoint {
+  month: string;
+  outstanding: number;
+  due: number;
+}
+
+export interface EarningsTrendPoint {
+  month: string;
+  earnings: number;
+}
+
+export interface DelinquencyReportPoint {
+  label: string;
+  count: number;
+}
+
+// --- Dividends module DTOs ---
+
+export type DividendPeriodStatus =
+  | 'pending'
+  | 'estimated_approved'
+  | 'audit_pending'
+  | 'audit_approved'
+  | 'final_locked';
+
+export interface DividendPeriod {
+  id: string;
+  fiscal_year: number;
+  cutoff_date: string | null;
+  status: DividendPeriodStatus;
+  total_cooperative_earnings: number;
+  total_share_capital: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DividendMemberAllocation {
+  id: string;
+  dividend_period_id: string;
+  member_id: string;
+  member_full_name: string;
+  employee_id: string;
+  member_share_capital: number;
+  ownership_percent: number;
+  profit_share_estimated: number | null;
+  profit_share_final: number | null;
+}
+
+
+
