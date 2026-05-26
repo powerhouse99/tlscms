@@ -42,8 +42,9 @@ export function Sidebar() {
   );
 
   const handleLogout = async () => {
+    const isMemberAccount = (user as any)?.type === 'member';
     await logout();
-    window.location.href = '/login';
+    window.location.href = isMemberAccount ? '/member-login' : '/login';
   };
 
   const getInitials = (name: string) => {

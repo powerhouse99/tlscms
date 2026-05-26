@@ -116,6 +116,21 @@ Deno.serve(async (req: Request) => {
       const body = await req.json();
       const { status } = body;
 
+      // Role Validation: Only Admins and Treasurers can change status
+      const { data: userRole } = await supabase
+        .from('users')
+        .select('roles(name)')
+        .eq('id', userId)
+        .single();
+
+      const roleName = (userRole?.roles as any)?.name;
+      if (roleName !== 'admin' && roleName !== 'treasurer') {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden: Insufficient permissions' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       if (!['open', 'closed'].includes(status)) {
         return new Response(
           JSON.stringify({ error: 'Invalid status. Must be "open" or "closed"' }),

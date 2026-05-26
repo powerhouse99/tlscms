@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { KeyRound, RefreshCw, Search, Shield, UserCog } from 'lucide-react';
 import { PageHeader } from '../components/common/PageHeader';
-import { Card, Button, Badge } from '../components/common/DataCard';
+import { Card, Button, Badge, Select } from '../components/common/DataCard';
 import { useAuthStore } from '../stores/authStore';
 import type { MemberSummaryView } from '../types/database';
 
@@ -23,7 +23,9 @@ export function ProfileSettingsPage() {
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [memberPassword, setMemberPassword] = useState('');
+  const [accountRole, setAccountRole] = useState<'member' | 'auditor' | 'treasurer'>('member');
   const [resettingMember, setResettingMember] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
   const [memberStatus, setMemberStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
   const selectedMember = useMemo(
@@ -66,6 +68,7 @@ export function ProfileSettingsPage() {
     if (!selectedMember) return;
     setEmployeeId(selectedMember.employee_id);
     setMemberPassword(defaultMemberPassword(selectedMember.employee_id));
+    setAccountRole((selectedMember.account_role || 'member') as 'member' | 'auditor' | 'treasurer');
   }, [selectedMember]);
 
   const changePassword = async (e: React.FormEvent) => {
@@ -112,6 +115,11 @@ export function ProfileSettingsPage() {
   const resetMemberCredentials = async () => {
     if (!selectedMember) return;
 
+    if (user?.role?.name !== 'admin') {
+      setMemberStatus({ type: 'error', message: 'Only administrators can reset member credentials.' });
+      return;
+    }
+
     const confirmed = window.confirm(`Reset login credentials for ${selectedMember.full_name}?`);
     if (!confirmed) return;
 
@@ -146,6 +154,47 @@ export function ProfileSettingsPage() {
       setMemberStatus({ type: 'error', message: error instanceof Error ? error.message : 'Failed to reset member credentials' });
     } finally {
       setResettingMember(false);
+    }
+  };
+
+  const saveMemberRole = async () => {
+    if (!selectedMember) return;
+
+    if (user?.role?.name !== 'admin') {
+      setMemberStatus({ type: 'error', message: 'Only administrators can update member roles.' });
+      return;
+    }
+
+    setSavingRole(true);
+    setMemberStatus({ type: null, message: '' });
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/members`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          id: selectedMember.id,
+          account_role: accountRole,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update member role');
+
+      setMemberStatus({
+        type: 'success',
+        message: `${selectedMember.full_name} can now sign in as ${accountRole}.`,
+      });
+      await fetchMembers();
+    } catch (error) {
+      setMemberStatus({ type: 'error', message: error instanceof Error ? error.message : 'Failed to update member role' });
+    } finally {
+      setSavingRole(false);
     }
   };
 
@@ -219,46 +268,47 @@ export function ProfileSettingsPage() {
           </form>
         </Card>
 
-        <Card className="xl:col-span-2 overflow-hidden" padding="none">
-          <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
-                <UserCog className="w-5 h-5 text-purple-600" />
+        {(user?.role?.name === 'admin' || user?.role?.name === 'auditor') && (
+          <Card className="xl:col-span-2 overflow-hidden" padding="none">
+            <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
+                  <UserCog className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Member Credential Supervision</h2>
+                  <p className="text-sm text-gray-500">View usernames and reset member login passwords.</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Member Credential Supervision</h2>
-                <p className="text-sm text-gray-500">View usernames and reset member login passwords.</p>
-              </div>
-            </div>
-            <Button variant="secondary" onClick={fetchMembers} loading={loadingMembers}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
-          <div className="p-8 space-y-6">
-            {memberStatus.type && (
-              <div className={`p-3 rounded-xl text-sm font-medium ${
-                memberStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
-              }`}>
-                {memberStatus.message}
-              </div>
-            )}
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search member name or username..."
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              <Button variant="secondary" onClick={fetchMembers} loading={loadingMembers}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden max-h-[420px] overflow-y-auto">
-                {filteredMembers.map((member) => (
+            <div className="p-8 space-y-6">
+              {memberStatus.type && (
+                <div className={`p-3 rounded-xl text-sm font-medium ${
+                  memberStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+                }`}>
+                  {memberStatus.message}
+                </div>
+              )}
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search member name or username..."
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden max-h-[420px] overflow-y-auto">
+                  {filteredMembers.map((member) => (
                   <button
                     key={member.id}
                     type="button"
@@ -272,51 +322,73 @@ export function ProfileSettingsPage() {
                         <p className="font-bold text-gray-900 dark:text-white">{member.full_name}</p>
                         <p className="text-sm text-gray-500">Username: {member.employee_id}</p>
                       </div>
-                      <Badge variant={member.status === 'active' ? 'success' : 'default'}>{member.status}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={member.account_role === 'member' ? 'default' : 'info'}>{member.account_role || 'member'}</Badge>
+                        <Badge variant={member.status === 'active' ? 'success' : 'default'}>{member.status}</Badge>
+                      </div>
                     </div>
                   </button>
                 ))}
-              </div>
+                </div>
 
-              <div className="p-5 border border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-800/20 space-y-4">
-                {selectedMember ? (
-                  <>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest text-gray-500">Selected Member</p>
-                      <p className="text-lg font-black text-gray-900 dark:text-white">{selectedMember.full_name}</p>
+                <div className="p-6 border border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-800/20 space-y-6">
+                  {selectedMember ? (
+                    <>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-500">Selected Member</p>
+                        <p className="text-lg font-black text-gray-900 dark:text-white">{selectedMember.full_name}</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 border border-blue-100 dark:border-blue-900 rounded-2xl bg-blue-500/5 space-y-3">
+                          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                            <Shield className="w-4 h-4" />
+                            <span className="text-sm font-bold uppercase tracking-wider">Access Control</span>
+                          </div>
+                          <Select
+                            label="System Role"
+                            value={accountRole}
+                            onChange={(val) => setAccountRole(val as any)}
+                            disabled={user?.role?.name !== 'admin' || savingRole}
+                            options={[
+                              { value: 'member', label: 'Standard Member' },
+                              { value: 'auditor', label: 'Auditor (View Only)' },
+                              { value: 'treasurer', label: 'Treasurer' },
+                            ]}
+                          />
+                          <Button 
+                            onClick={saveMemberRole} 
+                            loading={savingRole} 
+                            className="w-full"
+                            disabled={user?.role?.name !== 'admin'}
+                          >
+                            Update Role
+                          </Button>
+                        </div>
+
+                        <Button 
+                          variant="secondary" 
+                          onClick={resetMemberCredentials} 
+                          loading={resettingMember} 
+                          className="w-full"
+                          disabled={user?.role?.name !== 'admin'}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Reset Password
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 py-12">
+                      <UserCog className="w-12 h-12 mb-4 opacity-20" />
+                      <p className="text-sm font-medium">Select a member to manage credentials or roles</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username / Employee ID</label>
-                      <input
-                        value={employeeId}
-                        onChange={(e) => {
-                          const next = e.target.value.toUpperCase();
-                          setEmployeeId(next);
-                          setMemberPassword(defaultMemberPassword(next));
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Temporary Password</label>
-                      <input
-                        value={memberPassword}
-                        onChange={(e) => setMemberPassword(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                    <Button onClick={resetMemberCredentials} loading={resettingMember} className="w-full">
-                      <KeyRound className="w-4 h-4 mr-2" />
-                      Reset Member Credentials
-                    </Button>
-                  </>
-                ) : (
-                  <div className="text-sm text-gray-500">Select a member to view or reset login credentials.</div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, TrendingUp, Clock, AlertCircle, CheckCircle, Wallet, CreditCard, BarChart3, LogOut } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, AlertCircle, CheckCircle, Wallet, CreditCard, BarChart3, LogOut, Users, Shield } from 'lucide-react';
 import { Card, Badge } from '../components/common/DataCard';
-import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import type { MemberSummaryView, Loan, LoanPayment, ShareCapital } from '../types/database';
 
 interface MemberData {
@@ -139,6 +139,23 @@ export function MemberPortalPage() {
   }
 
   const { member, loans, payments, shareCapital } = data;
+  const accountRole = member.account_role || 'member';
+  const moduleLinks = accountRole === 'treasurer'
+    ? [
+        { label: 'Dashboard', path: '/', icon: BarChart3 },
+        { label: 'Members', path: '/members', icon: Users },
+        { label: 'Loans', path: '/loans', icon: CreditCard },
+        { label: 'Share Capital', path: '/share-capital', icon: DollarSign },
+        { label: 'Reports', path: '/reports', icon: TrendingUp },
+      ]
+    : accountRole === 'auditor'
+    ? [
+        { label: 'Dashboard', path: '/', icon: BarChart3 },
+        { label: 'Members', path: '/members', icon: Users },
+        { label: 'Reports', path: '/reports', icon: TrendingUp },
+        { label: 'Audit Trail', path: '/audit', icon: Shield },
+      ]
+    : [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -158,6 +175,11 @@ export function MemberPortalPage() {
               <Badge variant={member.status === 'active' ? 'success' : 'default'} className="text-sm px-4 py-1">
                 {member.status === 'active' ? 'Active Member' : 'Inactive'}
               </Badge>
+              {accountRole !== 'member' && (
+                <Badge variant="info" className="text-sm px-4 py-1">
+                  {accountRole}
+                </Badge>
+              )}
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -172,6 +194,32 @@ export function MemberPortalPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Grid */}
+        {moduleLinks.length > 0 && (
+          <Card className="mb-8 border-blue-500/20 bg-blue-500/5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-600">Assigned Modules</p>
+                <h2 className="text-xl font-black text-gray-900 dark:text-white capitalize">{accountRole} Access</h2>
+              </div>
+              <p className="text-sm text-gray-500">Use the same member account to open your assigned work modules.</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {moduleLinks.map((item) => (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900 text-left hover:shadow-lg transition-all"
+                >
+                  <item.icon className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20 shadow-blue-500/5 ring-1 ring-blue-500/10">

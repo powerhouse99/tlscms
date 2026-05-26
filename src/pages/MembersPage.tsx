@@ -5,14 +5,18 @@ import { Card, Button, Badge, Modal, Table } from '../components/common/DataCard
 import type { MemberSummaryView } from '../types/database';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { MemberFormModal } from '../components/members/MemberFormModal';
+import { useAuthStore } from '../stores/authStore';
 
 export function MembersPage() {
+  const { user } = useAuthStore();
   const [members, setMembers] = useState<MemberSummaryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<MemberSummaryView | null>(null);
+
+  const canManage = user?.role?.name === 'admin' || user?.role?.name === 'treasurer';
 
   useEffect(() => {
     fetchMembers();
@@ -121,12 +125,12 @@ export function MembersPage() {
       <PageHeader
         title="Members"
         description="Manage cooperative members and their profiles"
-        actions={
+        actions={canManage && (
           <Button onClick={() => setShowAddModal(true)}>
             <UserPlus className="w-4 h-4 mr-2" />
             Add Member
           </Button>
-        }
+        )}
       />
 
       <Card padding="none">
@@ -191,10 +195,13 @@ function MemberDetailsModal({
   onClose: () => void;
   onUpdate: () => void;
 }) {
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  const canManage = user?.role?.name === 'admin' || user?.role?.name === 'treasurer';
 
   const handleDelete = async () => {
     const confirmed = window.confirm(`Delete ${member.full_name}? This will mark the member as inactive.`);
@@ -345,16 +352,18 @@ function MemberDetailsModal({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-800">
-          <Button variant="secondary" onClick={() => setShowEditModal(true)}>
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Member
-          </Button>
-          <Button variant="danger" onClick={handleDelete} loading={deleting}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Member
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-800">
+            <Button variant="secondary" onClick={() => setShowEditModal(true)}>
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Member
+            </Button>
+            <Button variant="danger" onClick={handleDelete} loading={deleting}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Member
+            </Button>
+          </div>
+        )}
       </div>
       </Modal>
 

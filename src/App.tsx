@@ -19,14 +19,14 @@ import { DividendsPage } from './pages/DividendsPage';
 import { RouteRestore } from './RouteRestore';
 
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, checkAuth, isLoading } = useAuthStore();
+function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+  const { user, isAuthenticated, checkAuth, isLoading } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -36,6 +36,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  const roleName = (user as any)?.role?.name;
+  if (roles && roleName !== 'admin' && (!roleName || !roles.includes(roleName))) {
+    return <Navigate to={roleName === 'member' ? '/portal' : '/'} replace />;
   }
 
   return <MainLayout>{children}</MainLayout>;
@@ -99,7 +104,7 @@ function App() {
         <Route
           path="/"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <DashboardPage />
             </PrivateRoute>
           }
@@ -107,7 +112,7 @@ function App() {
         <Route
           path="/members"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <MembersPage />
             </PrivateRoute>
           }
@@ -115,7 +120,7 @@ function App() {
         <Route
           path="/share-capital"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <ShareCapitalPage />
             </PrivateRoute>
           }
@@ -123,7 +128,7 @@ function App() {
         <Route
           path="/loans"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <LoansPage />
             </PrivateRoute>
           }
@@ -131,7 +136,7 @@ function App() {
         <Route
           path="/cutoffs"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer']}>
               <CutoffPage />
             </PrivateRoute>
           }
@@ -140,7 +145,7 @@ function App() {
         <Route
           path="/dividends"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <DividendsPage />
             </PrivateRoute>
           }
@@ -149,7 +154,7 @@ function App() {
         <Route
           path="/reports"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'treasurer', 'auditor']}>
               <ReportsPage />
             </PrivateRoute>
           }
@@ -158,7 +163,7 @@ function App() {
         <Route
           path="/audit"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin', 'auditor']}>
               <AuditTrailPage />
             </PrivateRoute>
           }
@@ -177,7 +182,7 @@ function App() {
         <Route
           path="/settings"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin']}>
               <SettingsPage />
             </PrivateRoute>
           }
@@ -185,7 +190,7 @@ function App() {
         <Route
           path="/profile"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin']}>
               <ProfileSettingsPage />
             </PrivateRoute>
           }
@@ -193,7 +198,7 @@ function App() {
         <Route
           path="/backup"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={['admin']}>
               <BackupPage />
             </PrivateRoute>
           }

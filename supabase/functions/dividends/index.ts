@@ -77,27 +77,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Token expired', exp: tokenData.exp }, 401);
     }
 
-    if (tokenData.type !== 'admin') {
-      // This dividends module is privileged (admin/treasurer only)
-      return json({ error: 'Forbidden', tokenType: tokenData.type }, 403);
-    }
-
-    if (!tokenData.user_id) {
-      return json({ error: 'Forbidden', tokenUserIdMissing: true }, 403);
-    }
-
-
-    // Determine role from users table
-    let roleName: string | null = null;
-    const { data: roleRow } = await supabase
-      .from('users')
-      .select('role_id')
-      .eq('id', tokenData.user_id)
-      .maybeSingle();
-
-    const roleId = roleRow?.role_id;
-    if (roleId) {
-      const { data: role } = await supabase
+    if (nst { data: role } = await supabase
         .from('roles')
         .select('name')
         .eq('id', roleId)

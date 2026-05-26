@@ -72,6 +72,7 @@ export const useAuthStore = create<AuthState>()(
         } finally {
           localStorage.removeItem('auth_token');
           localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user_data');
           set({ user: null, isAuthenticated: false });
         }
       },
@@ -95,6 +96,7 @@ export const useAuthStore = create<AuthState>()(
           if (!response.ok) {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user_data');
             set({ user: null, isAuthenticated: false });
             return;
           }
@@ -109,6 +111,7 @@ export const useAuthStore = create<AuthState>()(
           console.error('Auth check error:', error);
           localStorage.removeItem('auth_token');
           localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user_data');
           set({ user: null, isAuthenticated: false });
         } finally {
           set({ isLoading: false });

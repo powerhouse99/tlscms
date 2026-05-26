@@ -524,7 +524,7 @@ CREATE POLICY "Authenticated can view public settings"
   USING (is_public = true OR EXISTS (
     SELECT 1 FROM users u
     JOIN roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.name IN ('admin', 'treasurer')
+    WHERE u.id = auth.uid() AND r.name IN ('admin', 'treasurer', 'auditor')
   ));
 
 -- RLS Policies for notifications
@@ -596,7 +596,7 @@ CREATE POLICY "Authenticated can view editable config"
   USING (is_editable = true OR EXISTS (
     SELECT 1 FROM users u
     JOIN roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.name = 'admin'
+    WHERE u.id = auth.uid() AND r.name IN ('admin', 'auditor')
   ));
 
 -- Create indexes for performance

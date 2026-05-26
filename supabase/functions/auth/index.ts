@@ -86,6 +86,7 @@ Deno.serve(async (req: Request) => {
           member_id: member.id,
           employee_id: member.employee_id,
           full_name: member.full_name,
+          role: member.account_role || 'member',
           type: 'member',
           exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
         }));
@@ -103,6 +104,7 @@ Deno.serve(async (req: Request) => {
               id: member.id,
               employee_id: member.employee_id,
               full_name: member.full_name,
+              role: { name: member.account_role || 'member' },
               type: 'member',
               ...memberSummary
             },
@@ -302,6 +304,7 @@ Deno.serve(async (req: Request) => {
         member_id: member.id,
         employee_id: member.employee_id,
         full_name: member.full_name,
+        role: member.account_role || 'member',
         type: 'member',
         exp: Date.now() + 24 * 60 * 60 * 1000
       }));
@@ -318,6 +321,7 @@ Deno.serve(async (req: Request) => {
             id: member.id,
             employee_id: member.employee_id,
             full_name: member.full_name,
+            role: { name: member.account_role || 'member' },
             type: 'member',
             ...memberSummary
           },
@@ -371,6 +375,7 @@ Deno.serve(async (req: Request) => {
             JSON.stringify({
               user: {
                 ...member,
+                role: { name: member.account_role || 'member' },
                 type: 'member'
               }
             }),

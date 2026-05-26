@@ -34,8 +34,8 @@ export function MemberLoginPage() {
       localStorage.setItem('auth_token', data.session.access_token);
       localStorage.setItem('user_data', JSON.stringify(data.user));
 
-      // Navigate to member portal
-      navigate('/portal');
+      const accountRole = data.user?.account_role || data.user?.role?.name || 'member';
+      navigate(accountRole === 'member' ? '/portal' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

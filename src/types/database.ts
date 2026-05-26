@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'auditor' | 'treasurer' | 'staff';
+export type MemberAccountRole = 'member' | 'auditor' | 'treasurer';
 export type MemberStatus = 'active' | 'inactive';
 export type LoanStatus = 'pending' | 'active' | 'fully_paid' | 'delayed' | 'closed';
 export type PaymentStatus = 'paid' | 'missed' | 'pending';
@@ -39,6 +40,7 @@ export interface Member {
   address: string | null;
   date_joined: string;
   status: MemberStatus;
+  account_role: MemberAccountRole;
   profile_picture_url: string | null;
   total_loans: number;
   total_paid: number;
@@ -212,6 +214,7 @@ export interface MemberSummaryView {
   address: string | null;
   date_joined: string;
   status: MemberStatus;
+  account_role: MemberAccountRole;
   share_capital_amount: number;
   total_loans: number;
   total_paid: number;
@@ -295,6 +298,5 @@ export interface DividendMemberAllocation {
   profit_share_estimated: number | null;
   profit_share_final: number | null;
 }
-
 
 

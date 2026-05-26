@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button, Input, Select, Modal } from '../common/DataCard';
 import { Search, AlertCircle } from 'lucide-react';
 import type { MemberSummaryView, CutoffSummaryView } from '../../types/database';
+import { useAuthStore } from '../../stores/authStore';
 import { formatCurrency } from '../../utils/formatters';
 
 interface NewLoanModalProps {
@@ -12,6 +13,7 @@ interface NewLoanModalProps {
 }
 
 export function NewLoanModal({ cutoff, enforceCutoffRules = true, onClose, onSuccess }: NewLoanModalProps) {
+  const { user } = useAuthStore();
   const [members, setMembers] = useState<MemberSummaryView[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<MemberSummaryView[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,6 +22,8 @@ export function NewLoanModal({ cutoff, enforceCutoffRules = true, onClose, onSuc
   const [releaseDate, setReleaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const canManage = user?.role?.name === 'admin' || user?.role?.name === 'treasurer';
 
   useEffect(() => {
     fetchMembers();
@@ -221,8 +225,12 @@ export function NewLoanModal({ cutoff, enforceCutoffRules = true, onClose, onSuc
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={loading} disabled={!selectedMember}>
-            Process Loan
+          <Button 
+            type="submit" 
+            loading={loading} 
+            disabled={!canManage || !selectedMember}
+          >
+            Create Loan
           </Button>
         </div>
       </form>

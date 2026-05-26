@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Users,
   DollarSign,
   TrendingUp,
   AlertCircle,
@@ -21,7 +20,6 @@ import {
   LoanDistributionChart,
   FinancialTrendsChart,
   EarningsTrendsChart,
-  DelinquencyReportsChart,
 } from '../components/dashboard/charts';
 
 import type {
@@ -32,14 +30,17 @@ import type {
   LoanDistributionPoint,
   FinancialTrendPoint,
   EarningsTrendPoint,
-  DelinquencyReportPoint,
 } from '../types/database';
 
 import { formatCurrency, formatDate } from '../utils/formatters';
 
-function safeNumber(v: unknown, fallback = 0) {
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? n : fallback;
+function safeNumber(...values: unknown[]) {
+  for (const value of values) {
+    const n = typeof value === 'number' ? value : Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+
+  return 0;
 }
 
 export function DashboardPage() {
@@ -51,8 +52,6 @@ export function DashboardPage() {
   const [loanDistribution, setLoanDistribution] = useState<LoanDistributionPoint[]>([]);
   const [financialTrends, setFinancialTrends] = useState<FinancialTrendPoint[]>([]);
   const [earningsTrends, setEarningsTrends] = useState<EarningsTrendPoint[]>([]);
-  const [delinquencyReports, setDelinquencyReports] = useState<DelinquencyReportPoint[]>([]);
-
   const [loading, setLoading] = useState(true);
 
   // Preserve scroll position across refresh/back-navigation for a better UX.
@@ -164,7 +163,7 @@ export function DashboardPage() {
       if (res.distributionRes.ok) setLoanDistribution((await res.distributionRes.json()) || []);
       if (res.financialRes.ok) setFinancialTrends((await res.financialRes.json()) || []);
       if (res.earningsRes.ok) setEarningsTrends((await res.earningsRes.json()) || []);
-      if (res.delinquencyRes.ok) setDelinquencyReports((await res.delinquencyRes.json()) || []);
+      if (res.delinquencyRes.ok) await res.delinquencyRes.json();
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {

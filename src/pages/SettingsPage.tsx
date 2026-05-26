@@ -3,9 +3,11 @@ import { Save, Shield, Zap, Layers, Settings2, Database, Upload, Download, Users
 import { PageHeader } from '../components/common/PageHeader';
 import { Card, Button } from '../components/common/DataCard';
 import type { SystemConfig } from '../types/database';
+import { useAuthStore } from '../stores/authStore';
 import * as XLSX from 'xlsx';
 
 export function SettingsPage() {
+  const { user } = useAuthStore();
   const [configs, setConfigs] = useState<SystemConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,6 +17,8 @@ export function SettingsPage() {
   const [resetPhrase, setResetPhrase] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  const canManage = user?.role?.name === 'admin';
 
   useEffect(() => {
     fetchConfigs();
@@ -201,12 +205,131 @@ export function SettingsPage() {
     general: 'General Settings',
   };
 
+  const policyAndResetSections = (
+    <>
+      {/* Policy & Governance Section */}
+      <Card className="rounded-[2.5rem] border-rose-100 dark:border-rose-900/50 bg-rose-50/10 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-rose-500/5 overflow-hidden">
+        <div className="px-8 py-6 border-b border-inherit bg-white/40 dark:bg-gray-800/40 backdrop-blur-md flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl">
+              <Shield className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-70">Governance</h2>
+              <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">System Policy Overrides</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">
+            <Zap className="w-3 h-3 fill-current" /> Critical Access
+          </div>
+        </div>
+        <div className="p-8">
+          {migrationStatus.type && (
+            <div className={`mb-8 p-4 rounded-2xl flex items-center gap-3 ${
+              migrationStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+            }`}>
+              {migrationStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+              <p className="text-sm font-black">{migrationStatus.message}</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between p-6 rounded-3xl border border-rose-500/20 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm group hover:shadow-xl transition-all duration-500">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-rose-100 dark:border-rose-900 group-hover:scale-110 transition-transform">
+                <Layers className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Cutoff Rule Enforcement</h3>
+                <p className="text-sm text-gray-500 font-medium">Disable for historical backfill: loans can be recorded by release date regardless of cutoff status, capacity, or existing active loans.</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <ConfigEditor
+                value={editedConfigs.enforce_cutoff_rules ?? configs.find(c => c.config_key === 'enforce_cutoff_rules')?.config_value ?? true}
+                onChange={(val) => setEditedConfigs(prev => ({ ...prev, enforce_cutoff_rules: val }))}
+              />
+              {('enforce_cutoff_rules' in editedConfigs) && (
+                <span className="text-[10px] font-black uppercase text-blue-600 animate-pulse">Pending Save</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* System Reset Section */}
+      <Card className="rounded-[2.5rem] border-rose-100 dark:border-rose-900/50 bg-rose-50/10 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-rose-500/5 overflow-hidden">
+        <div className="px-8 py-6 border-b border-inherit bg-white/40 dark:bg-gray-800/40 backdrop-blur-md flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-70">Danger Zone</h2>
+              <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">Reset Operational Data</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">
+            <AlertCircle className="w-3 h-3" /> Destructive
+          </div>
+        </div>
+        <div className="p-8 space-y-6">
+          {resetStatus.type && (
+            <div className={`p-4 rounded-2xl flex items-center gap-3 ${
+              resetStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+            }`}>
+              {resetStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+              <p className="text-sm font-black">{resetStatus.message}</p>
+            </div>
+          )}
+
+          <div className="p-6 rounded-3xl border border-rose-500/20 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Enable Data Reset</h3>
+                <p className="text-sm text-gray-500 font-medium">
+                  Deletes operational records only. Database tables, users, roles, and settings remain intact.
+                </p>
+              </div>
+              <ConfigEditor value={resetEnabled} onChange={(value) => setResetEnabled(Boolean(value))} />
+            </div>
+
+            {resetEnabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-rose-600 mb-2">
+                    Type RESET DATA to confirm
+                  </label>
+                  <input
+                    type="text"
+                    value={resetPhrase}
+                    onChange={(e) => setResetPhrase(e.target.value)}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-900 border border-rose-200 dark:border-rose-900 rounded-xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all outline-none text-gray-900 dark:text-white"
+                    placeholder="RESET DATA"
+                  />
+                </div>
+                <Button
+                  variant="danger"
+                  onClick={handleResetData}
+                  loading={resetting}
+                  disabled={resetPhrase !== 'RESET DATA'}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Reset Data
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    </>
+  );
+
   return (
     <div className="p-6 lg:p-8">
       <PageHeader
         title="System Settings"
         description="Configure system parameters and options"
-        actions={
+        actions={canManage && (
           <Button
             onClick={handleSave}
             loading={saving}
@@ -215,7 +338,7 @@ export function SettingsPage() {
             <Save className="w-4 h-4 mr-2" />
             Save Changes
           </Button>
-        }
+        )}
       />
 
       {loading ? (
@@ -225,7 +348,8 @@ export function SettingsPage() {
       ) : (
         <div className="space-y-10">
           {/* Data Migration Section */}
-          <Card className="rounded-[2.5rem] border-indigo-100 dark:border-indigo-900/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-indigo-500/5 overflow-hidden">
+          {canManage && (
+            <Card className="rounded-[2.5rem] border-indigo-100 dark:border-indigo-900/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-indigo-500/5 overflow-hidden">
             <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-indigo-50/30 dark:bg-indigo-900/10 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl">
@@ -276,142 +400,36 @@ export function SettingsPage() {
               </div>
             </div>
           </Card>
-
-          {/* Policy & Governance Section */}
-          <Card className="rounded-[2.5rem] border-rose-100 dark:border-rose-900/50 bg-rose-50/10 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-rose-500/5 overflow-hidden">
-            <div className="px-8 py-6 border-b border-inherit bg-white/40 dark:bg-gray-800/40 backdrop-blur-md flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-70">Governance</h2>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">System Policy Overrides</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">
-                <Zap className="w-3 h-3 fill-current" /> Critical Access
-              </div>
-            </div>
-            <div className="p-8">
-              {migrationStatus.type && (
-                <div className={`mb-8 p-4 rounded-2xl flex items-center gap-3 ${
-                  migrationStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
-                }`}>
-                  {migrationStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                  <p className="text-sm font-black">{migrationStatus.message}</p>
-                </div>
-              )}
-              <div className="flex items-center justify-between p-6 rounded-3xl border border-rose-500/20 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm group hover:shadow-xl transition-all duration-500">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-rose-100 dark:border-rose-900 group-hover:scale-110 transition-transform">
-                    <Layers className="w-6 h-6 text-rose-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Cutoff Rule Enforcement</h3>
-                    <p className="text-sm text-gray-500 font-medium">Disable for historical backfill: loans can be recorded by release date regardless of cutoff status, capacity, or existing active loans.</p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <ConfigEditor 
-                    value={editedConfigs.enforce_cutoff_rules ?? configs.find(c => c.config_key === 'enforce_cutoff_rules')?.config_value ?? true} 
-                    onChange={(val) => setEditedConfigs(prev => ({ ...prev, enforce_cutoff_rules: val }))}
-                  />
-                  {('enforce_cutoff_rules' in editedConfigs) && (
-                    <span className="text-[10px] font-black uppercase text-blue-600 animate-pulse">Pending Save</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* System Reset Section */}
-          <Card className="rounded-[2.5rem] border-rose-100 dark:border-rose-900/50 bg-rose-50/10 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-rose-500/5 overflow-hidden">
-            <div className="px-8 py-6 border-b border-inherit bg-white/40 dark:bg-gray-800/40 backdrop-blur-md flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl">
-                  <Trash2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-70">Danger Zone</h2>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">Reset Operational Data</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">
-                <AlertCircle className="w-3 h-3" /> Destructive
-              </div>
-            </div>
-            <div className="p-8 space-y-6">
-              {resetStatus.type && (
-                <div className={`p-4 rounded-2xl flex items-center gap-3 ${
-                  resetStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
-                }`}>
-                  {resetStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                  <p className="text-sm font-black">{resetStatus.message}</p>
-                </div>
-              )}
-
-              <div className="p-6 rounded-3xl border border-rose-500/20 bg-white/30 dark:bg-gray-800/20 backdrop-blur-sm space-y-5">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Enable Data Reset</h3>
-                    <p className="text-sm text-gray-500 font-medium">
-                      Deletes operational records only. Database tables, users, roles, and settings remain intact.
-                    </p>
-                  </div>
-                  <ConfigEditor value={resetEnabled} onChange={(value) => setResetEnabled(Boolean(value))} />
-                </div>
-
-                {resetEnabled && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-black uppercase tracking-widest text-rose-600 mb-2">
-                        Type RESET DATA to confirm
-                      </label>
-                      <input
-                        type="text"
-                        value={resetPhrase}
-                        onChange={(e) => setResetPhrase(e.target.value)}
-                        className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-900 border border-rose-200 dark:border-rose-900 rounded-xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all outline-none text-gray-900 dark:text-white"
-                        placeholder="RESET DATA"
-                      />
-                    </div>
-                    <Button
-                      variant="danger"
-                      onClick={handleResetData}
-                      loading={resetting}
-                      disabled={resetPhrase !== 'RESET DATA'}
-                      className="w-full sm:w-auto"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Reset Data
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
+          )}
 
           {Object.entries(groupedConfigs).map(([category, categoryConfigs]) => {
-            const categoryStyle = {
-              lending: 'border-blue-100 dark:border-blue-900/50 shadow-blue-500/5 bg-blue-50/5',
-              system: 'border-purple-100 dark:border-purple-900/50 shadow-purple-500/5 bg-purple-50/5',
-              backup: 'border-emerald-100 dark:border-emerald-900/50 shadow-emerald-500/5 bg-emerald-50/5',
-              dividend: 'border-indigo-100 dark:border-indigo-900/50 shadow-indigo-500/5 bg-indigo-50/5',
-              general: 'border-slate-100 dark:border-slate-900/50 shadow-slate-500/5 bg-slate-50/5',
-            }[category] || 'border-gray-100 shadow-sm';
+            const categoryEyebrow = {
+              lending: 'Operations',
+              system: 'Infrastructure',
+              backup: 'Infrastructure',
+              dividend: 'Finance',
+              general: 'Workspace',
+            }[category] || 'Configuration';
 
             return (
-              <Card key={category} className={`rounded-[2.5rem] border ${categoryStyle} overflow-hidden transition-all duration-500`}>
-                <div className="px-8 py-5 border-b border-inherit bg-white/40 dark:bg-gray-800/40 backdrop-blur-md flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-inherit">
-                    <Settings2 className="w-4 h-4 opacity-70" />
+              <Card key={category} className="rounded-[2.5rem] border-indigo-100 dark:border-indigo-900/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl shadow-2xl shadow-indigo-500/5 overflow-hidden transition-all duration-500">
+                <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 bg-indigo-50/30 dark:bg-indigo-900/10 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+                      <Settings2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-70">
+                        {categoryEyebrow}
+                      </h2>
+                      <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">
+                        {categoryTitles[category] || category}
+                      </p>
+                    </div>
                   </div>
-                  <h2 className="text-lg font-black text-gray-900 dark:text-white tracking-tight uppercase text-[12px] opacity-80">
-                    {categoryTitles[category] || category}
-                  </h2>
                 </div>
-                <div className="p-8 space-y-6">
+                <div className="p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {categoryConfigs.map((config) => {
                   const k = config.config_key;
                   const isEdited = k in editedConfigs;
@@ -420,22 +438,27 @@ export function SettingsPage() {
                     : config.config_value;
 
                   return (
-                    <div key={config.id} className={`p-6 rounded-3xl border backdrop-blur-sm transition-all duration-300 ${
+                    <div key={config.id} className={`p-6 rounded-[2rem] border backdrop-blur-sm transition-all duration-300 hover:shadow-xl group ${
                       isEdited 
                         ? 'border-blue-500/30 bg-blue-500/5 shadow-xl shadow-blue-500/5' 
-                        : 'border-gray-200/50 dark:border-gray-700/50 bg-white/30 dark:bg-gray-800/20'
+                        : 'border-blue-500/10 bg-blue-500/5 dark:bg-blue-500/10'
                     }`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {k.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                          </p>
-                          {config.description && (
-                            <p className="text-sm text-gray-500">{config.description}</p>
-                          )}
+                      <div className="flex items-start justify-between gap-4 mb-6">
+                        <div className="flex items-start gap-3">
+                          <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-900 group-hover:scale-110 transition-transform">
+                            <Settings2 className="w-5 h-5 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
+                              {k.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                            </p>
+                            {config.description && (
+                              <p className="text-sm text-gray-500 font-medium mt-1">{config.description}</p>
+                            )}
+                          </div>
                         </div>
                         {isEdited && (
-                          <span className="text-xs text-blue-600 font-medium">Modified</span>
+                          <span className="shrink-0 text-[10px] font-black uppercase text-blue-600 animate-pulse">Modified</span>
                         )}
                       </div>
 
@@ -447,14 +470,18 @@ export function SettingsPage() {
                             [k]: value,
                           }));
                         }}
+                        readOnly={!canManage}
                       />
                     </div>
                   );
                 })}
+                  </div>
               </div>
             </Card>
           );
           })}
+
+          {canManage && policyAndResetSections}
         </div>
       )}
     </div>
@@ -464,53 +491,72 @@ export function SettingsPage() {
 function ConfigEditor({
   value,
   onChange,
+  readOnly,
 }: {
   value: unknown;
   onChange: (value: unknown) => void;
+  readOnly?: boolean;
 }) {
   const inputBase = "px-4 py-2.5 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-gray-900 dark:text-white shadow-inner";
+  const labelText = "text-sm font-medium text-gray-700 dark:text-gray-300";
+  const formatConfigLabel = (key: string) =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  const ToggleSwitch = ({
+    checked,
+    onToggle,
+  }: {
+    checked: boolean;
+    onToggle: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={readOnly}
+      className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-4 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+        checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-300 ease-in-out ${
+          checked ? 'translate-x-7' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
 
   if (typeof value === 'boolean') {
     return (
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-4 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
-          value ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-        }`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-300 ease-in-out ${
-            value ? 'translate-x-7' : 'translate-x-0'
-          }`}
-        />
-      </button>
+      <ToggleSwitch checked={value} onToggle={() => !readOnly && onChange(!value)} />
     );
   }
 
   if (typeof value === 'object' && value !== null) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {Object.entries(value as Record<string, unknown>).map(([key, val]) => (
-          <div key={key} className="flex items-center gap-4">
-            <label className="text-sm text-gray-600 dark:text-gray-400 w-40">{key}:</label>
-            <input
-              type={typeof val === 'number' ? 'number' : typeof val === 'boolean' ? 'checkbox' : 'text'}
-              value={typeof val === 'boolean' ? undefined : String(val)}
-              checked={typeof val === 'boolean' ? Boolean(val) : undefined}
-              onChange={(e) => {
-                let newValue: unknown;
-                if (typeof val === 'boolean') {
-                  newValue = e.target.checked;
-                } else if (typeof val === 'number') {
-                  newValue = Number(e.target.value);
-                } else {
-                  newValue = e.target.value;
-                }
-                onChange({ ...(value as Record<string, unknown>), [key]: newValue });
-              }}
-              className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
+          <div key={key} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className={`${labelText} sm:w-44`}>{formatConfigLabel(key)}</label>
+            {typeof val === 'boolean' ? (
+              <ToggleSwitch
+                checked={Boolean(val)}
+                disabled={readOnly}
+                onToggle={() => {
+                  onChange({ ...(value as Record<string, unknown>), [key]: !val });
+                }}
+              />
+            ) : (
+              <input
+                type={typeof val === 'number' ? 'number' : 'text'}
+                value={String(val)}
+                readOnly={readOnly}
+                onChange={(e) => {
+                  const newVal = typeof val === 'number' ? Number(e.target.value) : e.target.value;
+                  onChange({ ...(value as Record<string, unknown>), [key]: newVal });
+                }}
+                className={inputBase}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -519,10 +565,14 @@ function ConfigEditor({
 
   return (
     <input
-      type="text"
+      type={typeof value === 'number' ? 'number' : 'text'}
       value={String(value)}
-      onChange={(e) => onChange(e.target.value)}
-      className={`w-full ${inputBase}`}
+      readOnly={readOnly}
+      onChange={(e) => {
+        const newVal = typeof value === 'number' ? Number(e.target.value) : e.target.value;
+        onChange(newVal);
+      }}
+      className={inputBase}
     />
   );
 }

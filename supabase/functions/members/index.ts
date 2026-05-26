@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await supabase
         .from('members')
         .update({
-          ...body,
+          ...Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'id')),
           updated_by: userId,
           updated_at: new Date().toISOString()
         })

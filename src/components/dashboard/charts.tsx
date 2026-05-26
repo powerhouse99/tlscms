@@ -1,40 +1,67 @@
 import {
   ResponsiveContainer,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
-  LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
+  Legend,
 } from 'recharts';
 
 const tooltipStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.96)',
-  border: '1px solid rgba(59,130,246,0.18)',
-  borderRadius: 14,
-  boxShadow: '0 14px 38px rgba(15,23,42,0.12)',
-  color: '#0f172a',
+  border: '1px solid rgba(226,232,240,0.92)',
+  borderRadius: 18,
+  boxShadow: '0 22px 60px rgba(15,23,42,0.13)',
+  color: '#334155',
 };
 
-
-const gridStroke = 'rgba(148,163,184,0.30)';
+const chartMargin = { top: 18, right: 22, left: 0, bottom: 0 };
+const gridStroke = 'rgba(148,163,184,0.22)';
 const tickFillLight = '#64748b';
-const tickFillDark = '#94a3b8';
+const currencyFormatter = (value: unknown) =>
+  `PHP ${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const numberFormatter = (value: unknown) => Number(value || 0).toLocaleString();
 
-
-function axisTickStyle() {
-  return {
-    fill: tickFillLight,
-    fontSize: 12,
-  };
+function axisTick() {
+  return { fill: tickFillLight, fontSize: 12, fontWeight: 600 };
 }
 
+function SharedGrid() {
+  return (
+    <CartesianGrid
+      vertical={false}
+      strokeDasharray="5 8"
+      stroke={gridStroke}
+      strokeWidth={1}
+    />
+  );
+}
 
+function SharedAxes({ xKey = 'month' }: { xKey?: string }) {
+  return (
+    <>
+      <XAxis
+        dataKey={xKey}
+        tick={axisTick()}
+        tickLine={false}
+        axisLine={false}
+        dy={12}
+      />
+      <YAxis
+        tick={axisTick()}
+        tickFormatter={(v) => String(v)}
+        tickLine={false}
+        axisLine={false}
+        width={58}
+      />
+    </>
+  );
+}
 
 export function MonthlyCollectionsChart({
   data,
@@ -43,51 +70,31 @@ export function MonthlyCollectionsChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <BarChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+      <AreaChart data={data} margin={chartMargin}>
         <defs>
-          <linearGradient id="barCollected" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.95} />
-            <stop offset="100%" stopColor="#2563eb" stopOpacity={0.95} />
-          </linearGradient>
-          <linearGradient id="barGlow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.02} />
+          <linearGradient id="monthlyCollectedFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.30} />
+            <stop offset="55%" stopColor="#0ea5e9" stopOpacity={0.10} />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.01} />
           </linearGradient>
         </defs>
-
-        <CartesianGrid
-          strokeDasharray="4 6"
-          stroke={gridStroke}
-          strokeWidth={1}
-        />
-
-        <XAxis
-          dataKey="month"
-          tick={{ fontSize: 12, fill: tickFillLight, opacity: 0.9 }}
-          tickLine={false}
-          axisLine={{ stroke: gridStroke, strokeWidth: 1 }}
-        />
-        <YAxis
-          tick={{ fontSize: 12, fill: tickFillLight, opacity: 0.9 }}
-          tickFormatter={(v) => String(v)}
-          tickLine={false}
-          axisLine={{ stroke: gridStroke, strokeWidth: 1 }}
-        />
-
+        <SharedGrid />
+        <SharedAxes />
         <Tooltip
           contentStyle={tooltipStyle}
-          formatter={(v: unknown) => [`${Number(v).toLocaleString()}`, 'Collected']}
+          cursor={{ stroke: 'rgba(14,165,233,0.16)', strokeWidth: 2 }}
+          formatter={(v: unknown) => [currencyFormatter(v), 'Collected']}
         />
-
-        <Bar
+        <Area
+          type="monotone"
           dataKey="collected"
-          fill="url(#barCollected)"
-          radius={[10, 10, 0, 0]}
-          stroke="rgba(37,99,235,0.18)"
-          strokeWidth={1}
+          stroke="#0ea5e9"
+          strokeWidth={4}
+          fill="url(#monthlyCollectedFill)"
+          dot={false}
+          activeDot={{ r: 6, stroke: '#fff', strokeWidth: 3, fill: '#0ea5e9' }}
         />
-
-      </BarChart>
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
@@ -97,29 +104,33 @@ export function LoanDistributionChart({
 }: {
   data: Array<{ label: string; count: number }>;
 }) {
-  const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
-
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <PieChart>
+      <AreaChart data={data} margin={chartMargin}>
+        <defs>
+          <linearGradient id="loanDistributionFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.30} />
+            <stop offset="55%" stopColor="#22c55e" stopOpacity={0.10} />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity={0.01} />
+          </linearGradient>
+        </defs>
+        <SharedGrid />
+        <SharedAxes xKey="label" />
         <Tooltip
           contentStyle={tooltipStyle}
-          formatter={(value: unknown) => [`${Number(value).toLocaleString()}`, 'Count']}
+          cursor={{ stroke: 'rgba(34,197,94,0.16)', strokeWidth: 2 }}
+          formatter={(value: unknown) => [numberFormatter(value), 'Loans']}
         />
-        <Pie
-          data={data}
+        <Area
+          type="monotone"
           dataKey="count"
-          nameKey="label"
-          cx="50%"
-          cy="50%"
-          outerRadius={120}
-          label={({ percent }: any) => `${Math.round((percent ?? 0) * 100)}%`}
-        >
-          {data.map((_, idx) => (
-            <Cell key={idx} fill={colors[idx % colors.length]} />
-          ))}
-        </Pie>
-      </PieChart>
+          stroke="#22c55e"
+          strokeWidth={4}
+          fill="url(#loanDistributionFill)"
+          dot={false}
+          activeDot={{ r: 6, stroke: '#fff', strokeWidth: 3, fill: '#22c55e' }}
+        />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
@@ -131,29 +142,52 @@ export function FinancialTrendsChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => String(v)} />
-        <Tooltip contentStyle={tooltipStyle} />
-        <Line
+      <AreaChart data={data} margin={chartMargin}>
+        <defs>
+          <linearGradient id="outstandingFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#312e81" stopOpacity={0.24} />
+            <stop offset="100%" stopColor="#312e81" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="dueFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#db2777" stopOpacity={0.24} />
+            <stop offset="100%" stopColor="#db2777" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <SharedGrid />
+        <SharedAxes />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ stroke: 'rgba(219,39,119,0.12)', strokeWidth: 2 }}
+          formatter={(v: unknown, name: unknown) => [
+            currencyFormatter(v),
+            String(name) === 'outstanding' ? 'Outstanding' : 'Due',
+          ]}
+        />
+        <Legend
+          verticalAlign="top"
+          align="right"
+          iconType="circle"
+          wrapperStyle={{ color: '#64748b', fontSize: 12, fontWeight: 700, paddingBottom: 12 }}
+        />
+        <Area
           type="monotone"
           dataKey="outstanding"
-          stroke="#3b82f6"
-          strokeWidth={3}
+          stroke="#312e81"
+          strokeWidth={4}
+          fill="url(#outstandingFill)"
           dot={false}
-          strokeLinecap="round"
+          activeDot={{ r: 6, stroke: '#fff', strokeWidth: 3, fill: '#312e81' }}
         />
         <Line
           type="monotone"
           dataKey="due"
-          stroke="#f59e0b"
-          strokeWidth={3}
+          stroke="#db2777"
+          strokeWidth={4}
           dot={false}
           strokeLinecap="round"
+          activeDot={{ r: 6, stroke: '#fff', strokeWidth: 3, fill: '#db2777' }}
         />
-
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
@@ -165,13 +199,31 @@ export function EarningsTrendsChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => String(v)} />
-        <Tooltip contentStyle={tooltipStyle} />
-        <Line type="monotone" dataKey="earnings" stroke="#8b5cf6" strokeWidth={3} dot={false} />
-      </LineChart>
+      <AreaChart data={data} margin={chartMargin}>
+        <defs>
+          <linearGradient id="earningsFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#a855f7" stopOpacity={0.32} />
+            <stop offset="55%" stopColor="#a855f7" stopOpacity={0.11} />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity={0.01} />
+          </linearGradient>
+        </defs>
+        <SharedGrid />
+        <SharedAxes />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ stroke: 'rgba(168,85,247,0.16)', strokeWidth: 2 }}
+          formatter={(v: unknown) => [currencyFormatter(v), 'Earnings']}
+        />
+        <Area
+          type="monotone"
+          dataKey="earnings"
+          stroke="#a855f7"
+          strokeWidth={4}
+          fill="url(#earningsFill)"
+          dot={false}
+          activeDot={{ r: 6, stroke: '#fff', strokeWidth: 3, fill: '#a855f7' }}
+        />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
@@ -193,4 +245,3 @@ export function DelinquencyReportsChart({
     </ResponsiveContainer>
   );
 }
-
