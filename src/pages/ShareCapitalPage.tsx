@@ -167,7 +167,7 @@ export function ShareCapitalPage() {
 
       {showAddModal && (
         <AddShareCapitalModal
-          members={members.filter(m => m.share_capital_amount === 0)}
+          members={members}
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);

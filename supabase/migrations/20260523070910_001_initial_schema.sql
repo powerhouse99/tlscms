@@ -151,8 +151,7 @@ CREATE TABLE IF NOT EXISTS share_capitals (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   created_by uuid REFERENCES users(id),
-  updated_by uuid REFERENCES users(id),
-  UNIQUE (member_id) -- Enforce one-time payment only
+  updated_by uuid REFERENCES users(id)
 );
 
 -- 5. Cutoff Periods table
